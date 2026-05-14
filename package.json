@@ -1,0 +1,11 @@
+{
+  "name": "nixos-wiki-that-my-personal-change-which-is-in-chinese",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node scripts/build.mjs"
+  },
+  "dependencies": {
+    "marked": "^16.4.1"
+  }
+}

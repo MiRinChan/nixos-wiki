@@ -129,9 +129,9 @@ function encodeUrlSegments(segments) {
 }
 
 function relativeEntryHref(fromSegments, toSegments) {
-  const fromDir = encodeUrlSegments(fromSegments).join("/") || ".";
-  const target = [...encodeUrlSegments(toSegments), "index.html"].join("/");
-  return path.posix.relative(fromDir, target) || "index.html";
+  if (!toSegments || toSegments.length === 0) return "/";
+  const pathSegments = toSegments.map(encodeURIComponent);
+  return "/" + pathSegments.join("/") + "/";
 }
 
 function assetPrefixForEntry(entry) {

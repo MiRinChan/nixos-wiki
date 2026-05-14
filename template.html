@@ -29,5 +29,23 @@
         >前往 GitHub 编辑此页</a
       >
     </footer>
+    <script>
+      document.addEventListener("DOMContentLoaded", () => {
+        let url = window.location.pathname;
+
+        // 根目录保持 /
+        if (url === "/") return;
+
+        // 去掉末尾的 /
+        if (url.endsWith("/")) {
+          url = url.replace(/\/$/, "");
+        }
+
+        // 如果修改了路径，替换当前历史记录（不会新增历史记录）
+        if (url !== window.location.pathname) {
+          history.replaceState(null, "", url);
+        }
+      });
+    </script>
   </body>
 </html>

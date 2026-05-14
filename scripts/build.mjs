@@ -73,9 +73,10 @@ function escapeHtml(value) {
 
 const repoBase = "https://github.com/MiRinChan/nixos-wiki-that-my-personal-change-which-is-in-chinese/edit/main";
 
-function renderPage(template, title, content, githubEditUrl, assetPrefix = '') {
+function renderPage(template, title, content, githubEditUrl, assetPrefix = '', heading = escapeHtml(title)) {
   return template
     .replaceAll("{{title}}", escapeHtml(title))
+    .replaceAll("{{heading}}", heading)
     .replaceAll("{{content}}", content)
     .replaceAll("{{github_edit_url}}", githubEditUrl)
     .replaceAll("{{asset_prefix}}", assetPrefix);
@@ -83,22 +84,38 @@ function renderPage(template, title, content, githubEditUrl, assetPrefix = '') {
 
 async function listEntries() {
   await fs.mkdir(entriesDir, { recursive: true });
-  const dirents = await fs.readdir(entriesDir, { withFileTypes: true });
+  return listEntryChildren(entriesDir, []);
+}
 
+async function pathExists(filePath) {
+  try {
+    await fs.access(filePath);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function listEntryChildren(parentDir, parentSegments) {
+  const dirents = await fs.readdir(parentDir, { withFileTypes: true });
   const result = [];
 
   for (const dirent of dirents) {
     if (dirent.isDirectory()) {
-      const indexPath = path.join(entriesDir, dirent.name, "index.md");
-      try {
-        await fs.access(indexPath);
+      const segments = [...parentSegments, dirent.name];
+      const entryDir = path.join(parentDir, dirent.name);
+      const indexPath = path.join(entryDir, "index.md");
+      const children = await listEntryChildren(entryDir, segments);
+      const hasIndex = await pathExists(indexPath);
+
+      if (hasIndex || children.length > 0) {
         result.push({
-          dirName: dirent.name,
-          title: dirent.name,
-          outputFileName: `${dirent.name}/index.html`,
+          segments,
+          title: segments.join("/"),
+          sourcePath: indexPath,
+          hasIndex,
+          children,
         });
-      } catch {
-        // directory without index.md, skip
       }
     }
   }
@@ -106,16 +123,60 @@ async function listEntries() {
   return result.sort((left, right) => left.title.localeCompare(right.title, "zh-CN"));
 }
 
-function buildEntryList(entries) {
+function encodeUrlSegments(segments) {
+  return segments.map((segment) => encodeURIComponent(segment));
+}
+
+function relativeEntryHref(fromSegments, toSegments) {
+  const fromDir = encodeUrlSegments(fromSegments).join("/") || ".";
+  const target = [...encodeUrlSegments(toSegments), "index.html"].join("/");
+  return path.posix.relative(fromDir, target) || "index.html";
+}
+
+function assetPrefixForEntry(entry) {
+  return entry.segments.length === 0 ? "" : "../".repeat(entry.segments.length);
+}
+
+function buildEntryHeading(entry) {
+  if (entry.segments.length < 2) {
+    return escapeHtml(entry.title);
+  }
+
+  const items = entry.segments.map((segment, index) => {
+    const label = escapeHtml(segment);
+
+    if (index === entry.segments.length - 1) {
+      return label;
+    }
+
+    const href = relativeEntryHref(entry.segments, entry.segments.slice(0, index + 1));
+    return `<a href="${href}">${label}</a>`;
+  });
+
+  return items.join("<span aria-hidden=\"true\"> / </span>");
+}
+
+function* walkEntries(entries) {
+  for (const entry of entries) {
+    yield entry;
+    yield* walkEntries(entry.children);
+  }
+}
+
+function buildEntryList(entries, currentSegments = [], options = {}) {
   if (entries.length === 0) {
     return "<p>暂无词条。</p>";
   }
 
   const links = entries
     .map((entry) => {
-      const href = encodeURI(entry.outputFileName);
+      const href = relativeEntryHref(currentSegments, entry.segments);
       const title = escapeHtml(entry.title);
-      return `      <li><a href="${href}">${title}</a></li>`;
+      const children = options.includeDescendants && entry.children.length > 0
+        ? `\n${buildEntryList(entry.children, currentSegments, options)}`
+        : "";
+
+      return `      <li><a href="${href}">${title}</a>${children}</li>`;
     })
     .join("\n");
 
@@ -124,7 +185,13 @@ function buildEntryList(entries) {
 
 async function renderHome(entries) {
   const markdown = await fs.readFile(homePath, "utf8");
-  const markdownWithEntries = markdown.replaceAll("{{entries}}", buildEntryList(entries));
+  const markdownWithEntries = markdown.replaceAll("{{entries}}", buildEntryList(entries, [], { includeDescendants: true }));
+  return marked.parse(markdownWithEntries);
+}
+
+async function renderEntry(entry) {
+  const markdown = entry.hasIndex ? await fs.readFile(entry.sourcePath, "utf8") : "{{entries}}";
+  const markdownWithEntries = markdown.replaceAll("{{entries}}", buildEntryList(entry.children, entry.segments));
   return marked.parse(markdownWithEntries);
 }
 
@@ -136,6 +203,31 @@ async function copyStaticAssets() {
       .filter((dirent) => dirent.isFile() && (staticExtensions.has(path.extname(dirent.name).toLowerCase()) || dirent.name === "CNAME"))
       .map((dirent) => fs.copyFile(path.join(rootDir, dirent.name), path.join(outDir, dirent.name))),
   );
+
+  await copyEntryStaticAssets(entriesDir, outDir);
+}
+
+async function copyEntryStaticAssets(sourceDir, targetDir) {
+  const dirents = await fs.readdir(sourceDir, { withFileTypes: true });
+
+  await Promise.all(
+    dirents.map(async (dirent) => {
+      const sourcePath = path.join(sourceDir, dirent.name);
+      const targetPath = path.join(targetDir, dirent.name);
+
+      if (dirent.isDirectory()) {
+        await copyEntryStaticAssets(sourcePath, targetPath);
+        return;
+      }
+
+      if (!dirent.isFile() || !staticExtensions.has(path.extname(dirent.name).toLowerCase())) {
+        return;
+      }
+
+      await fs.mkdir(path.dirname(targetPath), { recursive: true });
+      await fs.copyFile(sourcePath, targetPath);
+    }),
+  );
 }
 
 async function build() {
@@ -145,12 +237,11 @@ async function build() {
   await fs.rm(outDir, { recursive: true, force: true });
   await fs.mkdir(outDir, { recursive: true });
 
-  for (const entry of entries) {
-    const markdown = await fs.readFile(path.join(entriesDir, entry.dirName, "index.md"), "utf8");
-    const html = marked.parse(markdown);
-    const githubEditUrl = `${repoBase}/entries/${entry.dirName}/index.md`;
-    const page = renderPage(template, entry.title, html, githubEditUrl, '../');
-    const entryOutDir = path.join(outDir, entry.dirName);
+  for (const entry of walkEntries(entries)) {
+    const html = await renderEntry(entry);
+    const githubEditUrl = `${repoBase}/entries/${entry.segments.map(encodeURIComponent).join("/")}/index.md`;
+    const page = renderPage(template, entry.title, html, githubEditUrl, assetPrefixForEntry(entry), buildEntryHeading(entry));
+    const entryOutDir = path.join(outDir, ...entry.segments);
     await fs.mkdir(entryOutDir, { recursive: true });
     await fs.writeFile(path.join(entryOutDir, "index.html"), page, "utf8");
   }

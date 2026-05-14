@@ -3,7 +3,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "node scripts/build.mjs"
+    "build": "node scripts/build.mjs",
+    "dev": "concurrently \"chokidar 'entries/**/*.md' 'index.md' 'template.html' -c 'npm run build'\" \"live-server out --open\""
   },
   "dependencies": {
     "marked": "^16.4.1"
@@ -11,6 +12,5 @@
   "devDependencies": {
     "chokidar-cli": "^3.0.0",
     "concurrently": "^9.2.1"
-  },
-  "dev": "concurrently \"chokidar 'entries/**/*.md' 'index.md' 'template.html' -c 'npm run build'\" \"live-server out --open\""
+  }
 }

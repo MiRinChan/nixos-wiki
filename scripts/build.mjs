@@ -2,6 +2,7 @@ import { promises as fs } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { marked } from "marked";
+import hljs from "highlight.js";
 
 const rootDir = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 const entriesDir = path.join(rootDir, "entries");
@@ -9,6 +10,46 @@ const outDir = path.join(rootDir, "out");
 const templatePath = path.join(rootDir, "template.html");
 const homePath = path.join(rootDir, "index.md");
 const siteTitle = "NixOS Wiki that my personal change which is in Chinese";
+
+
+marked.use({
+  renderer: {
+    code({ text, lang: infostring }) {
+      // 正则匹配 语言:文件名 或 语言 文件名 (例如 js:app.js 或 js app.js)
+      const match = infostring?.match(/^([^\s:]+)[:\s](.+)$/);
+
+      let lang = infostring || '';
+      let fileName = '';
+
+      if (match) {
+        lang = match[1];
+        fileName = match[2];
+      }
+
+      const header = fileName
+        ? `<div class="code-header"><span class="code-filename">${fileName}</span></div>`
+        : '';
+
+      // 使用 highlight.js 渲染代码
+      let highlighted;
+      if (lang && hljs.getLanguage(lang)) {
+        try {
+          highlighted = hljs.highlight(text, { language: lang }).value;
+        } catch {
+          highlighted = escapeHtml(text);
+        }
+      } else {
+        highlighted = escapeHtml(text);
+      }
+
+      return `<div class="code-container">
+        ${header}
+        <pre><code class="language-${lang} hljs">${highlighted}</code></pre>
+      </div>`;
+    }
+  }
+});
+
 
 const staticExtensions = new Set([
   ".css",

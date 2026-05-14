@@ -1,0 +1,145 @@
+* {
+  --main: oklch(80% 0.2 260);
+}
+
+:root {
+  /* Layout */
+  --content-max-width: 300px;
+  --content-padding: 1em;
+
+  /* Fonts */
+  --font-mono: "Maple Mono NF CN Medium", monospace;
+  --font-serif: serif;
+  --font-sans: sans-serif;
+
+  /* Text & Background */
+  --text-color: #24292e;
+  --bg-color: #ffffff;
+
+  /* Decorative */
+  --hr-color: color-mix(in oklch, var(--main), transparent 30%);
+  --blockquote-border-color: color-mix(in oklch, var(--main), transparent 10%);
+
+  /* Tables */
+  --table-border-color: color-mix(in oklch, var(--main), transparent 70%);
+  --table-header-bg: color-mix(in oklch, var(--main), transparent 85%);
+  --table-row-even-bg: color-mix(in oklch, var(--main), transparent 92%);
+  --table-row-hover-bg: color-mix(in oklch, var(--main), transparent 80%);
+  --table-border-radius: 0.5em;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --text-color: #e6edf3;
+    --bg-color: #0d1117;
+    --main: oklch(70% 0.15 260);
+    --hr-color: color-mix(in oklch, var(--main), transparent 30%);
+    --blockquote-border-color: color-mix(in oklch, var(--main), transparent 10%);
+    --table-border-color: color-mix(in oklch, var(--main), transparent 70%);
+    --table-header-bg: color-mix(in oklch, var(--main), transparent 85%);
+    --table-row-even-bg: color-mix(in oklch, var(--main), transparent 92%);
+    --table-row-hover-bg: color-mix(in oklch, var(--main), transparent 80%);
+  }
+}
+
+body {
+  max-inline-size: var(--content-max-width);
+  margin: 0 auto;
+  padding: var(--content-padding);
+  font-family: var(--font-mono);
+  text-autospace: normal;
+  color: var(--text-color);
+  background-color: var(--bg-color);
+}
+
+h1, h2, h3 {
+  font-weight: bolder;
+  font-family: var(--font-serif);
+}
+
+h4, h5, h6 {
+  font-family: var(--font-sans);
+  font-weight: bold;
+}
+
+hr {
+  border: none;
+  border-block-start: 1px solid var(--hr-color);
+  margin: 1em 0;
+}
+
+img {
+  max-inline-size: 100%;
+  block-size: auto;
+}
+
+blockquote {
+  border-inline-start: 4px solid var(--blockquote-border-color);
+  padding-inline-start: 1em;
+  margin: 1em 0;
+  border-radius: 0.25em;
+}
+
+code {
+  font-family: var(--font-mono);
+  padding: 0.25em 0.5em;
+  border-radius: 0.25em;
+}
+
+pre {
+  margin: 0;
+  overflow-x: auto;
+}
+
+pre code {
+  padding: 0;
+  border-radius: 0;
+  background: none;
+}
+
+/* Table styles */
+table {
+  inline-size: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  margin: 1em 0;
+  font-size: 0.95em;
+  border-radius: var(--table-border-radius);
+  overflow: clip;
+}
+
+table thead tr:first-child th:first-child {
+  border-start-start-radius: var(--table-border-radius);
+}
+
+table thead tr:first-child th:last-child {
+  border-start-end-radius: var(--table-border-radius);
+}
+
+table tbody tr:last-child td:first-child {
+  border-end-start-radius: var(--table-border-radius);
+}
+
+table tbody tr:last-child td:last-child {
+  border-end-end-radius: var(--table-border-radius);
+}
+
+th, td {
+  border: 1px solid var(--table-border-color);
+  padding: 0.5em 0.75em;
+  text-align: start;
+}
+
+th {
+  background: var(--table-header-bg);
+  font-weight: bold;
+  font-family: var(--font-sans);
+}
+
+tr:nth-child(even) {
+  background: var(--table-row-even-bg);
+}
+
+tr:hover {
+  background: var(--table-row-hover-bg);
+}

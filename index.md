@@ -1,10 +1,11 @@
-# 欢迎查看我的 NixOS 中文维基
-
 <img
   src="photo_2026-05-14_19-41-31.jpg"
   alt="NixOS Logo"
-  style="inline-size: 12rem"
+  align='right'
+  width="100px"
 />
+
+# 欢迎查看我的 NixOS 中文维基
 
 这是一个关于NixOS的中文维基，包含了我个人的修改和贡献。NixOS 是一个基于Nix包管理器的Linux发行版，具有独特的包管理和系统配置方式。
 

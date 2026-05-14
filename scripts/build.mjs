@@ -71,10 +71,6 @@ function escapeHtml(value) {
     .replaceAll('"', "&quot;");
 }
 
-function withoutMarkdownExtension(fileName) {
-  return fileName.replace(/\.md$/i, "");
-}
-
 function renderPage(template, title, content) {
   return template
     .replaceAll("{{title}}", escapeHtml(title))
@@ -85,18 +81,25 @@ async function listEntries() {
   await fs.mkdir(entriesDir, { recursive: true });
   const dirents = await fs.readdir(entriesDir, { withFileTypes: true });
 
-  return dirents
-    .filter((dirent) => dirent.isFile() && dirent.name.toLowerCase().endsWith(".md"))
-    .map((dirent) => {
-      const title = withoutMarkdownExtension(dirent.name);
+  const result = [];
 
-      return {
-        fileName: dirent.name,
-        title,
-        outputFileName: `${title}.html`,
-      };
-    })
-    .sort((left, right) => left.title.localeCompare(right.title, "zh-CN"));
+  for (const dirent of dirents) {
+    if (dirent.isDirectory()) {
+      const indexPath = path.join(entriesDir, dirent.name, "index.md");
+      try {
+        await fs.access(indexPath);
+        result.push({
+          dirName: dirent.name,
+          title: dirent.name,
+          outputFileName: `${dirent.name}/index.html`,
+        });
+      } catch {
+        // directory without index.md, skip
+      }
+    }
+  }
+
+  return result.sort((left, right) => left.title.localeCompare(right.title, "zh-CN"));
 }
 
 function buildEntryList(entries) {
@@ -139,10 +142,12 @@ async function build() {
   await fs.mkdir(outDir, { recursive: true });
 
   for (const entry of entries) {
-    const markdown = await fs.readFile(path.join(entriesDir, entry.fileName), "utf8");
+    const markdown = await fs.readFile(path.join(entriesDir, entry.dirName, "index.md"), "utf8");
     const html = marked.parse(markdown);
     const page = renderPage(template, entry.title, html);
-    await fs.writeFile(path.join(outDir, entry.outputFileName), page, "utf8");
+    const entryOutDir = path.join(outDir, entry.dirName);
+    await fs.mkdir(entryOutDir, { recursive: true });
+    await fs.writeFile(path.join(entryOutDir, "index.html"), page, "utf8");
   }
 
   const home = renderPage(template, siteTitle, await renderHome(entries));

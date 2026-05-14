@@ -129,7 +129,7 @@ async function copyStaticAssets() {
 
   await Promise.all(
     dirents
-      .filter((dirent) => dirent.isFile() && staticExtensions.has(path.extname(dirent.name).toLowerCase()))
+      .filter((dirent) => dirent.isFile() && (staticExtensions.has(path.extname(dirent.name).toLowerCase()) || dirent.name === "CNAME"))
       .map((dirent) => fs.copyFile(path.join(rootDir, dirent.name), path.join(outDir, dirent.name))),
   );
 }

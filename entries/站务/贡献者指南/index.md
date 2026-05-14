@@ -1,6 +1,6 @@
 ## 如何贡献？
 
-  1. Fork [仓库](https://github.com/MiRinChan/nixos-wiki) 并 Clone
+  1. Fork[仓库](https://github.com/MiRinChan/nixos-wiki)并Clone
 
   2. 若为新的条目新建词条，请在`entries`下新建文件夹，条目直接为此文件夹名字。
 

@@ -5,9 +5,19 @@
   width="100px"
 />
 
-# 欢迎查看我的 NixOS 中文维基
+# 欢迎查看米凛的 NixOS 中文维基
 
-这是一个关于NixOS的中文维基，包含了我个人的修改和贡献。NixOS 是一个基于Nix包管理器的Linux发行版，具有独特的包管理和系统配置方式。
+NixOS一个基于Nix包管理器的Linux发行版，具有独特的包管理和系统配置方式。
+
+你可以用Control + F来快速的搜索。
+
+#### 警告
+
+这不是nixos-cn组织的网页，他们的网站是[nixos-cn.org](https://nixos-cn.org)，望知悉。
+
+## 词条
+
+{{entries}}
 
 <details>
   <summary>为什么有这个网站？</summary>
@@ -37,22 +47,8 @@ MediaWiki是相当<strong>狗屎</strong>的程序。以此为前提，NixOS Fou
 <details>
   <summary>贡献者协议</summary>
 
-通过提交pull request，你同意将你的贡献以CC-BY-SA 4.0许可证授权给本项目。并以附加条件，令其他人禁止在 MediaWiki上使用你的贡献。
+通过提交pull request，你同意将你的贡献以CC-BY-SA 4.0许可证授权给本项目。并以附加条件，令其他人禁止在MediaWiki上使用你的贡献。
 
 其他注意事项：无须在中英文之间添加空格。
 
 </details>
-
-## 词条
-
-{{entries}}
-
-<input id="search" placeholder="在这里搜索条目" />
-<button>搜索，你将被重定向到GitHub</button>
-<script>
-  const searchInput = document.querySelector("#search");
-  const searchButton = document.querySelector("button");
-  searchButton.addEventListener("click", () => {
-    window.location.href = `https://github.com/search?q=repo%3AMiRinChan%2Fnixos-wiki-that-my-personal-change-which-is-in-chinese ${searchInput.value}&type=code`;
-  });
-</script>

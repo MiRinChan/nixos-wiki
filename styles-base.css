@@ -4,13 +4,8 @@
 
 :root {
   /* Layout */
-  --content-max-width: 300px;
+  --content-max-width: 30em;
   --content-padding: 1em;
-
-  /* Fonts */
-  --font-mono: "Maple Mono NF CN Medium", monospace;
-  --font-serif: serif;
-  --font-sans: sans-serif;
 
   /* Text & Background */
   --text-color: #24292e;
@@ -46,19 +41,18 @@ body {
   max-inline-size: var(--content-max-width);
   margin: 0 auto;
   padding: var(--content-padding);
-  font-family: var(--font-mono);
   text-autospace: normal;
   color: var(--text-color);
   background-color: var(--bg-color);
 }
 
 h1, h2, h3 {
-  font-weight: bolder;
+  font-weight: serif;
   font-family: var(--font-serif);
 }
 
 h4, h5, h6 {
-  font-family: var(--font-sans);
+  font-family: sans-serif;
   font-weight: bold;
 }
 
@@ -81,7 +75,7 @@ blockquote {
 }
 
 code {
-  font-family: var(--font-mono);
+  font-family: monospace;
   padding: 0.25em 0.5em;
   border-radius: 0.25em;
 }
@@ -142,4 +136,24 @@ tr:nth-child(even) {
 
 tr:hover {
   background: var(--table-row-hover-bg);
+}
+
+a {
+  color: var(--main);
+  text-decoration: none;
+}
+
+a, a:link  {
+    color: var(--main);
+    text-decoration: underline;
+}
+
+a:visited {
+    color: oklch(from var(--main) calc(l - 0.3) calc(c - 0.1) h);
+}
+
+@media (prefers-color-scheme: dark) { 
+    a:visited {
+        color: oklch(from var(--main) calc(l + 0.6) calc(c + 0.1) h);
+    }
 }

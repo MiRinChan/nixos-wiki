@@ -1,12 +1,12 @@
 ## 如何贡献？
 
-  1. Fork [仓库](https://github.com/MiRinChan/nixos-wiki-that-my-personal-change-which-is-in-chinese) 并 Clone
+  1. Fork [仓库](https://github.com/MiRinChan/nixos-wiki) 并 Clone
 
   2. 若为新的条目新建词条，请在`entries`下新建文件夹，条目直接为此文件夹名字。
 
   3. 在此条目的`index.md`开始编辑内容。
 
-你可以通过提交<a href="https://github.com/MiRinChan/nixos-wiki-that-my-personal-change-which-is-in-chinese/pulls" target="_blank" rel="noreferrer">pull request</a>来贡献内容。
+你可以通过提交<a href="https://github.com/MiRinChan/nixos-wiki/pulls" target="_blank" rel="noreferrer">pull request</a>来贡献内容。
 
 ## 贡献者协议
 

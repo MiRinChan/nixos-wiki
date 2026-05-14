@@ -72,7 +72,7 @@ function escapeHtml(value) {
     .replaceAll('"', "&quot;");
 }
 
-const repoBase = "https://github.com/MiRinChan/nixos-wiki-that-my-personal-change-which-is-in-chinese/edit/main";
+const repoBase = "https://github.com/MiRinChan/nixos-wiki/edit/main";
 
 function renderPage(template, title, content, githubEditUrl, assetPrefix = '', heading = escapeHtml(title)) {
   return template

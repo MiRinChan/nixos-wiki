@@ -1,5 +1,5 @@
 {
-  "name": "nixos-wiki-that-my-personal-change-which-is-in-chinese",
+  "name": "nixos-wiki",
   "private": true,
   "type": "module",
   "scripts": {

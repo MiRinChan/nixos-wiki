@@ -1,3 +1,9 @@
+<style>
+  .autoInject {
+    display: none !important;
+  }
+</style>
+
 <img
   src="photo_2026-05-14_19-41-31.jpg"
   alt="NixOS Logo"

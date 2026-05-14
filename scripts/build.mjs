@@ -9,7 +9,7 @@ const entriesDir = path.join(rootDir, "entries");
 const outDir = path.join(rootDir, "out");
 const templatePath = path.join(rootDir, "template.html");
 const homePath = path.join(rootDir, "index.md");
-const siteTitle = "NixOS Wiki that my personal change which is in Chinese";
+const siteTitle = "NixOS Wiki zh-CN";
 
 
 marked.use({
@@ -71,10 +71,14 @@ function escapeHtml(value) {
     .replaceAll('"', "&quot;");
 }
 
-function renderPage(template, title, content) {
+const repoBase = "https://github.com/MiRinChan/nixos-wiki-that-my-personal-change-which-is-in-chinese/edit/main";
+
+function renderPage(template, title, content, githubEditUrl, assetPrefix = '') {
   return template
     .replaceAll("{{title}}", escapeHtml(title))
-    .replaceAll("{{content}}", content);
+    .replaceAll("{{content}}", content)
+    .replaceAll("{{github_edit_url}}", githubEditUrl)
+    .replaceAll("{{asset_prefix}}", assetPrefix);
 }
 
 async function listEntries() {
@@ -144,13 +148,14 @@ async function build() {
   for (const entry of entries) {
     const markdown = await fs.readFile(path.join(entriesDir, entry.dirName, "index.md"), "utf8");
     const html = marked.parse(markdown);
-    const page = renderPage(template, entry.title, html);
+    const githubEditUrl = `${repoBase}/entries/${entry.dirName}/index.md`;
+    const page = renderPage(template, entry.title, html, githubEditUrl, '../');
     const entryOutDir = path.join(outDir, entry.dirName);
     await fs.mkdir(entryOutDir, { recursive: true });
     await fs.writeFile(path.join(entryOutDir, "index.html"), page, "utf8");
   }
 
-  const home = renderPage(template, siteTitle, await renderHome(entries));
+  const home = renderPage(template, siteTitle, await renderHome(entries), `${repoBase}/index.md`, '');
   await fs.writeFile(path.join(outDir, "index.html"), home, "utf8");
 
   await copyStaticAssets();

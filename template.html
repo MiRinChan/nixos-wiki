@@ -4,12 +4,28 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>{{title}}</title>
-    <link rel="icon" type="image/x-icon" href="photo_2026-05-14_19-41-31.jpg" />
-    <link rel="stylesheet" href="styles-base.css" />
-    <link rel="stylesheet" href="styles-code-light.css" />
-    <link rel="stylesheet" href="styles-code-dark.css" />
+    <link
+      rel="icon"
+      type="image/x-icon"
+      href="{{asset_prefix}}photo_2026-05-14_19-41-31.jpg"
+    />
+    <link rel="stylesheet" href="{{asset_prefix}}styles-base.css" />
+    <link rel="stylesheet" href="{{asset_prefix}}styles-code-light.css" />
+    <link rel="stylesheet" href="{{asset_prefix}}styles-code-dark.css" />
   </head>
   <body>
+    <h1 class="autoInject">{{title}}</h1>
+    <hr class="autoInject" />
     {{content}}
+    <hr class="autoInject" />
+    <footer class="autoInject">
+      <a
+        class="autoInject"
+        href="{{github_edit_url}}"
+        target="_blank"
+        rel="noreferrer"
+        >前往 GitHub 编辑此页</a
+      >
+    </footer>
   </body>
 </html>

@@ -9,7 +9,9 @@ const entriesDir = path.join(rootDir, "entries");
 const outDir = path.join(rootDir, "out");
 const templatePath = path.join(rootDir, "template.html");
 const homePath = path.join(rootDir, "index.md");
+const cnamePath = path.join(rootDir, "CNAME");
 const siteTitle = "NixOS Wiki zh-CN";
+const defaultSiteOrigin = "https://nixoscn.org";
 
 
 marked.use({
@@ -75,13 +77,126 @@ function escapeHtml(value) {
 
 const repoBase = "https://github.com/MiRinChan/nixos-wiki/edit/main";
 
-function renderPage(template, title, content, githubEditUrl, assetPrefix = '', heading = escapeHtml(title)) {
-  return template
+async function readSiteOrigin() {
+  try {
+    const cname = await fs.readFile(cnamePath, "utf8");
+    const hostname = cname.split(/\r?\n/).map((line) => line.trim()).find(Boolean);
+
+    if (!hostname) {
+      return defaultSiteOrigin;
+    }
+
+    const origin = hostname.includes("://") ? hostname : `https://${hostname}`;
+    return new URL(origin).origin;
+  } catch {
+    return defaultSiteOrigin;
+  }
+}
+
+function renderPage(template, title, content, githubEditUrl, siteOrigin, pageSegments = [], assetPrefix = '', heading = escapeHtml(title)) {
+  const page = template
     .replaceAll("{{title}}", escapeHtml(title))
+    .replaceAll("{{site_link}}", buildSiteLink(siteOrigin))
     .replaceAll("{{heading}}", heading)
     .replaceAll("{{content}}", content)
     .replaceAll("{{github_edit_url}}", githubEditUrl)
     .replaceAll("{{asset_prefix}}", assetPrefix);
+
+  return absolutizeHtmlUrls(page, siteOrigin, pageSegments);
+}
+
+function buildSiteLink(siteOrigin) {
+  return `<a href="${escapeAttribute(siteOrigin)}">${escapeHtml(siteTitle)}</a>`;
+}
+
+function pageUrlForSegments(siteOrigin, segments) {
+  const encodedPath = segments.length > 0
+    ? `${segments.map(encodeURIComponent).join("/")}/`
+    : "";
+
+  return new URL(encodedPath, `${siteOrigin}/`).href;
+}
+
+function isAbsoluteOrSpecialUrl(value) {
+  return (
+    /^[a-z][a-z\d+.-]*:/i.test(value)
+    || value.startsWith("//")
+  );
+}
+
+function escapeAttribute(value) {
+  return String(value)
+    .replaceAll("&", "&amp;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;");
+}
+
+function unescapeAttributeUrl(value) {
+  return String(value)
+    .replaceAll("&amp;", "&")
+    .replaceAll("&quot;", '"')
+    .replaceAll("&#39;", "'")
+    .replaceAll("&apos;", "'")
+    .replaceAll("&lt;", "<")
+    .replaceAll("&gt;", ">");
+}
+
+function absolutizeUrl(value, siteOrigin, pageSegments) {
+  const trimmed = String(value).trim();
+
+  if (!trimmed || isAbsoluteOrSpecialUrl(trimmed)) {
+    return value;
+  }
+
+  try {
+    return new URL(unescapeAttributeUrl(trimmed), pageUrlForSegments(siteOrigin, pageSegments)).href;
+  } catch {
+    return value;
+  }
+}
+
+function absolutizeSrcset(value, siteOrigin, pageSegments) {
+  return String(value)
+    .split(",")
+    .map((candidate) => {
+      const trimmed = candidate.trim();
+      const [url, ...descriptors] = trimmed.split(/\s+/);
+
+      if (!url) {
+        return candidate;
+      }
+
+      return [absolutizeUrl(url, siteOrigin, pageSegments), ...descriptors].join(" ");
+    })
+    .join(", ");
+}
+
+function absolutizeCssUrls(html, siteOrigin, pageSegments) {
+  return html.replace(/url\(\s*(["']?)([^"')]+)\1\s*\)/gi, (match, quote, url) => {
+    const absolute = absolutizeUrl(url, siteOrigin, pageSegments);
+    return `url(${quote}${absolute}${quote})`;
+  });
+}
+
+function absolutizeHtmlUrls(html, siteOrigin, pageSegments) {
+  const withAttributes = html.replace(
+    /\b(href|src|poster|action)\s*=\s*(["'])(.*?)\2/gis,
+    (_match, attribute, quote, value) => {
+      const absolute = escapeAttribute(absolutizeUrl(value, siteOrigin, pageSegments));
+      return `${attribute}=${quote}${absolute}${quote}`;
+    },
+  );
+
+  const withSrcsets = withAttributes.replace(
+    /\bsrcset\s*=\s*(["'])(.*?)\1/gis,
+    (_match, quote, value) => {
+      const absolute = escapeAttribute(absolutizeSrcset(value, siteOrigin, pageSegments));
+      return `srcset=${quote}${absolute}${quote}`;
+    },
+  );
+
+  return absolutizeCssUrls(withSrcsets, siteOrigin, pageSegments);
 }
 
 async function listEntries() {
@@ -234,6 +349,7 @@ async function copyEntryStaticAssets(sourceDir, targetDir) {
 
 async function build() {
   const template = await fs.readFile(templatePath, "utf8");
+  const siteOrigin = await readSiteOrigin();
   const entries = await listEntries();
 
   await fs.rm(outDir, { recursive: true, force: true });
@@ -242,13 +358,13 @@ async function build() {
   for (const entry of walkEntries(entries)) {
     const html = await renderEntry(entry);
     const githubEditUrl = `${repoBase}/entries/${entry.segments.map(encodeURIComponent).join("/")}/index.md`;
-    const page = renderPage(template, entry.title, html, githubEditUrl, assetPrefixForEntry(entry), buildEntryHeading(entry));
+    const page = renderPage(template, entry.title, html, githubEditUrl, siteOrigin, entry.segments, assetPrefixForEntry(entry), buildEntryHeading(entry));
     const entryOutDir = path.join(outDir, ...entry.segments);
     await fs.mkdir(entryOutDir, { recursive: true });
     await fs.writeFile(path.join(entryOutDir, "index.html"), page, "utf8");
   }
 
-  const home = renderPage(template, siteTitle, await renderHome(entries), `${repoBase}/index.md`, '');
+  const home = renderPage(template, siteTitle, await renderHome(entries), `${repoBase}/index.md`, siteOrigin, [], '');
   await fs.writeFile(path.join(outDir, "index.html"), home, "utf8");
 
   await copyStaticAssets();

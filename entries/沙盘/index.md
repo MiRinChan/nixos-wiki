@@ -173,3 +173,53 @@ print("1")
 
 ![Minion](https://octodex.github.com/images/minion.png)
 ![Stormtroopocat](https://octodex.github.com/images/stormtroopocat.jpg "The Stormtroopocat")
+
+## 模板
+
+### 匿名参数
+
+{{Thankyou|你的努力|张三}}
+
+```markdown
+{{Thankyou|你的努力|张三}}
+```
+
+### 编号参数
+
+{{Thankyou|2=张三|1=你的友谊}}
+
+```markdown
+{{Thankyou|2=张三|1=你的友谊}}
+```
+
+### 命名参数
+
+{{Thankyou|signature=张三|reason=你的一切}}
+
+```markdown
+{{Thankyou|signature=张三|reason=你的一切}}
+```
+
+### 默认值
+
+{{ThankyouDefault}}
+
+```markdown
+{{ThankyouDefault}}
+```
+
+### 空字符串
+
+{{ParamEcho|bar=}}
+
+```markdown
+{{ParamEcho|bar=}}
+```
+
+### 参数转发
+
+{{ThankyouForward|支援了参数转发|signature=张三}}
+
+```markdown
+{{ThankyouForward|支援了参数转发|signature=张三}}
+```

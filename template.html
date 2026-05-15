@@ -29,34 +29,5 @@
         >前往 GitHub 编辑此页</a
       >
     </footer>
-    <script>
-      // On click: push clean URL before navigating
-      document.addEventListener("click", (e) => {
-        const a = e.target.closest("a");
-        if (!a) return;
-
-        const url = new URL(a.href, location.origin);
-        if (url.origin !== location.origin) return;
-
-        const clean = url.pathname.replace(/\/$/, "") || "/";
-        if (clean !== url.pathname) {
-          e.preventDefault();
-          history.pushState(null, "", clean + url.search + url.hash);
-          window.location.href = clean + url.search + url.hash; // actually navigate
-        }
-      });
-
-      // On load: replace in case user landed directly on a trailing-slash URL
-      document.addEventListener("DOMContentLoaded", () => {
-        let url = window.location.pathname;
-        if (url === "/") return;
-        if (url.endsWith("/")) {
-          url = url.replace(/\/$/, "");
-        }
-        if (url !== window.location.pathname) {
-          history.replaceState(null, "", url);
-        }
-      });
-    </script>
   </body>
 </html>

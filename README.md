@@ -5,7 +5,7 @@
   width="100px"
 />
 
-# [![NixOS Unofficial Chinese Wiki Badge](NixOS Unofficial Chinese Wiki Badge.png)](https://nixoscn.org) NixOS 中文维基
+# [![NixOS Unofficial Chinese Wiki Badge](https://raw.githubusercontent.com/MiRinChan/nixos-wiki/refs/heads/main/NixOS%20Unofficial%20Chinese%20Wiki%20Badge.png)](https://nixoscn.org) NixOS 中文维基
 
 从失望透顶到反抗低效程序。
 

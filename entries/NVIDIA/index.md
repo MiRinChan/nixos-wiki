@@ -168,6 +168,7 @@ exec "$@"
 如果一切配置正确，那么运行像`glxgears`这样的程序应该使用 集显，而运行`nvidia-offload glxgears`则应该只使用独显。
 
 #### 同步模式(Sync mode)
+
 > 注意：同步模式自NixOS 19.03和NVIDIA驱动程序版本390.67起可用，但与卸载模式和反向同步模式(reverse sync modes)均不兼容。同步模式还要求使用支持`services.xserver.displayManager.setupCommands`选项的桌面管理器，例如LightDM、GDM和SDDM。
 
 在同步模式下，渲染完全交给独显工作，而集显仅显示从独显复制的渲染帧缓冲区。同步模式可提供更佳的性能并大幅减少画面撕裂，但代价是更高的功耗，因为独立显卡在不需要时不会像在卸载模式下那样进入休眠状态。同步模式还可以解决将显示器以合盖模式直接连接到显卡时出现的一些问题。
@@ -240,15 +241,234 @@ Wayland需要启用内核模式设置(kernel mode setting)：
 
 ## 技巧与窍门
 
-> 进行中，也在等待你的贡献
+{{translateByMachine}}
+
+### 查看nixos-hardware
+
+[nixos-hardware](https://github.com/NixOS/nixos-hardware)项目旨在提供针对不同设备特定硬件问题的配置。也许已经有人为你的设备编写了硬件配置，这通常可以帮你处理好驱动问题。如果是这样，请按照上游文档启用所需的模块。
+
+### 多启动配置
+
+想象一下，你有一台笔记本电脑，大多数时候以合盖模式使用（接驳、连接外部显示器并接通电源），但有时也会在外出时使用。
+
+在合盖模式下，使用 PRIME 同步可能会带来更好的性能、外部显示器支持等，但代价是可能会（但不总是）降低电池续航。然而，在外出使用笔记本电脑时，你可能更倾向于使用卸载模式。
+
+NixOS 支持"特化(specialisations)"功能，允许你在重建系统时自动生成不同的启动配置文件。例如，我们可以默认启用 PRIME 同步，但也创建一个"on-the-go"特化，禁用 PRIME 同步并启用卸载模式：
+
+```nix configuration.nix
+{
+  specialisation.on-the-go.configuration = {
+    system.nixos.tags = [ "on-the-go" ];
+    hardware.nvidia.prime = {
+      offload = {
+        enable = lib.mkForce true;
+        enableOffloadCmd = lib.mkForce true;
+      };
+      sync.enable = lib.mkForce false;    
+    };
+  };
+}
+```
+
+（你也可以在这里添加其他与 NVIDIA 完全无关的设置，比如电源配置方案等。）
+
+重建并重启后，你会在启动菜单中每个 Generation 下看到一个"on-the-go"选项，允许你以该 Generation 的 on-the-go 特化模式启动。
+
+另请参阅 [nixos-hardware](https://github.com/NixOS/nixos-hardware/blob/master/common/gpu/nvidia/prime.nix) 中类似思路的实现。
+
+### 在非NixOS系统上使用GPU
+
+如果你在非NixOS系统上使用Nix打包的软件，你需要一种变通方法来让一切正常运行。[nixGL](https://github.com/guibou/nixGL) 项目提供了在非NixOS系统上使用GL驱动的包装器。你需要在你的发行版上安装 GPU 驱动（用于内核模块）。安装了nixGL后，运行`nixGL foobar`来代替`foobar`。
+
+注意，nixGL并非英伟达显卡专用，它应该适用于几乎任何GPU。
+
+### CUDA与使用GPU进行计算
+
+参见[CUDA](https://wiki.nixos.org/wiki/CUDA)维基页面。
+
+### 多进程服务(MPS)
+
+[NVIDIA多进程服务(MPS)](https://docs.nvidia.com/deploy/mps/index.html) 允许多个CUDA进程共享同一个GPU上下文。NixOS没有为MPS提供专用模块，因此需要自定义systemd服务：
+
+```nix configuration.nix
+{ config, pkgs, ... }:
+{
+  systemd.services.nvidia-mps = {
+    description = "NVIDIA CUDA Multi-Process Service";
+    after = [ "nvidia-persistenced.service" ];
+    requires = [ "nvidia-persistenced.service" ];
+    wantedBy = [ "multi-user.target" ];
+    path = [ config.hardware.nvidia.package.bin ];
+    serviceConfig = {
+      Type = "forking";
+      ExecStart = "${config.hardware.nvidia.package.bin}/bin/nvidia-cuda-mps-control -d";
+      ExecStop = "${pkgs.writeShellScript "nvidia-mps-stop" ''
+        echo quit | ${config.hardware.nvidia.package.bin}/bin/nvidia-cuda-mps-control
+      ''}";
+      Restart = "on-failure";
+      RestartSec = 5;
+    };
+  };
+}
+```
+
+> **警告**：`path`选项是必需的。MPS控制守护进程使用`execlp`来启动`nvidia-cuda-mps-server`，该程序必须位于服务的`PATH`中。如果没有它，守护进程看似正常启动，但会静默地无法启动服务器进程。CUDA客户端将收到 Error 805 (`cudaErrorMpsConnectionFailed`)。
+
+要从[Docker](https://wiki.nixos.org/wiki/Docker)容器中使用MPS，必须挂载MPS管道目录并共享主机IPC命名空间：
+
+```yaml
+services:
+  gpu-worker:
+    ipc: host
+    volumes:
+      - /tmp/nvidia-mps:/tmp/nvidia-mps
+    environment:
+      CUDA_MPS_PIPE_DIRECTORY: /tmp/nvidia-mps
+```
+
+### 运行特定版本的英伟达驱动
+
+要在NixOS中运行特定版本的英伟达驱动，你可以通过指定所需的版本及对应的SHA256哈希值来自定义配置。以下是使用英伟达驱动版本`555.58.02`的配置示例：
+
+```nix configuration.nix
+{ config, ... }:
+{
+  hardware.nvidia.package = config.boot.kernelPackages.nvidiaPackages.mkDriver {
+    version = "555.58.02";
+    sha256_64bit = "sha256-xctt4TPRlOJ6r5S54h5W6PT6/3Zy2R4ASNFPu8TSHKM=";
+    sha256_aarch64 = "sha256-xctt4TPRlOJ6r5S54h5W6PT6/3Zy2R4ASNFPu8TSHKM=";
+    openSha256 = "sha256-ZpuVZybW6CFN/gz9rx+UJvQ715FZnAOYfHn5jt5Z2C8=";
+    settingsSha256 = "sha256-ZpuVZybW6CFN/gz9rx+UJvQ715FZnAOYfHn5jt5Z2C8=";
+    persistencedSha256 = lib.fakeSha256;
+  };
+};
+```
+
+在此配置中：
+
+- 将 `version` 替换为所需的驱动版本。
+- 更新 SHA256 哈希值以匹配你想要使用的新版本。
+- 更新配置后，运行 `sudo nixos-rebuild switch` 以应用更改并加载指定的驱动版本。
+
+这样可以固定 NixOS 安装中使用的具体驱动版本。如果你正在运行最新的内核，可能需要这样做，因为打包的驱动可能无法正常构建[<sup>5</sup>](#ref5)。
 
 ## 疑难解答
 
-> 进行中，也在等待你的贡献
+### 启动进入文本模式
+
+如果你遇到了启动进入文本模式的问题，可以尝试手动添加英伟达内核模块：
+
+```nix
+boot.initrd.kernelModules = [ "nvidia" ];
+boot.extraModulePackages = [ config.boot.kernelPackages.nvidia_x11 ];
+```
+
+### 画面撕裂问题
+
+首先，尝试切换到 PRIME 同步模式，如上所述。如果不起作用，尝试强制合成管道(composition pipeline)。
+
+> 注意：强制全合成管道已被报告会降低某些OpenGL应用的性能，并可能在WebGL中引发问题。它还会显著增加驱动在负载后降频所需的时间。
+
+```nix configuration.nix
+hardware.nvidia.forceFullCompositionPipeline = true;
+```
+
+### Picom 闪烁问题
+
+```conf ~/.config/picom/picom.conf
+unredir-if-possible = false;
+backend = "xrender"; # 如果 xrender 无效，尝试 "glx"
+vsync = true;
+```
+
+### 挂起/恢复时的图形损坏和系统崩溃
+
+`powerManagement.enable = true` 有时可以解决这个问题，但其本身不稳定，且已知会导致挂起问题。
+
+`hardware.nvidia.powerManagement.enable = true` 有时也可以解决这个问题；其默认值为 `false`。
+
+> 注意：当启用`hardware.nvidia.powerManagement.enable`选项时，驱动默认将视频内存保存到`/tmp`。如果`/tmp`由tmpfs（内存）支持，且GPU VRAM使用量超出可用空间，系统将无法恢复，你会看到黑屏。
+>
+> 要解决此问题，请使用内核参数将临时文件重定向到具有足够容量的存储位置（例如 `/var/tmp`）：
+>
+> ```nix configuration.nix
+> boot.kernelParams = [ "nvidia.NVreg_TemporaryFilePath=/var/tmp" ];
+> ```
+
+如果你有现代英伟达显卡（图灵架构或更新），你可能还想了解 `hardware.nvidia.powerManagement.finegrained` 选项：[动态电源管理](https://download.nvidia.com/XFree86/Linux-x86_64/460.73.01/README/dynamicpowermanagement.html)
+
+[一个潜在的修复方案](https://discourse.nixos.org/t/suspend-resume-cycling-on-system-resume/32322/12) 是及时中断 gnome-shell，使其在休眠时不再尝试访问图形硬件[<sup>6</sup>](#ref6)。其全部目的是在系统休眠前手动"暂停"GNOME Shell 进程，并在系统唤醒后"取消暂停"它。
+
+---
+
+如果你在从挂起唤醒后出现图形损坏，并且上述设置导致系统在唤醒后约 20-30 秒重新进入休眠状态，以下方法可能同时解决这两个问题：
+
+```nix configuration.nix
+{
+  # https://discourse.nixos.org/t/black-screen-after-suspend-hibernate-with-nvidia/54341/6
+  # https://discourse.nixos.org/t/suspend-problem/54033/28
+  systemd = {
+    # 不确定是否还需要此项。
+    services.systemd-suspend.environment.SYSTEMD_SLEEP_FREEZE_USER_SESSIONS = "false";
+
+    services."gnome-suspend" = {
+      description = "suspend gnome shell"; # 暂停 gnome shell
+      before = [
+        "systemd-suspend.service"
+        "systemd-hibernate.service"
+        "nvidia-suspend.service"
+        "nvidia-hibernate.service"
+      ];
+      wantedBy = [
+        "systemd-suspend.service"
+        "systemd-hibernate.service"
+      ];
+      serviceConfig = {
+        Type = "oneshot";
+        ExecStart = ''${pkgs.procps}/bin/pkill -f -STOP ${pkgs.gnome-shell}/bin/gnome-shell'';
+      };
+    };
+    services."gnome-resume" = {
+      description = "resume gnome shell"; # 恢复 gnome shell
+      after = [
+        "systemd-suspend.service"
+        "systemd-hibernate.service"
+        "nvidia-resume.service"
+      ];
+      wantedBy = [
+        "systemd-suspend.service"
+        "systemd-hibernate.service"
+      ];
+      serviceConfig = {
+        Type = "oneshot";
+        ExecStart = ''${pkgs.procps}/bin/pkill -f -CONT ${pkgs.gnome-shell}/bin/gnome-shell'';
+      };
+    };
+  };
+
+  # https://discourse.nixos.org/t/black-screen-after-suspend-hibernate-with-nvidia/54341/23
+  hardware.nvidia.powerManagement.enable = true;
+}
+```
+
+### 笔记本电脑上黑屏或"什么都不管用"
+
+英特尔的内核模块`i915`或AMD的`amdgpu`可能会与英伟达驱动发生冲突。这可能导致切换到虚拟终端或退出X会话时出现黑屏。一种可能的解决方法是禁用集显，将模块加入黑名单，使用以下配置选项（另请参见[相关讨论](https://discourse.nixos.org/t/nvidia-gpu-and-i915-kernel-module/21307/3)）：
+
+```nix
+# 英特尔
+boot.kernelParams = [ "module_blacklist=i915" ];
+# AMD
+boot.kernelParams = [ "module_blacklist=amdgpu" ];
+```
+
+### NVIDIA Docker容器
+
+参见：[Docker#NVIDIA Docker容器](https://wiki.nixos.org/wiki/Docker#NVIDIA_Docker_Containers)
 
 ## 禁用
 
-### 来自英伟达的内核模块
+### 来自英伟达的内核模块<!--禁用->
 
 通常情况下，可以通过从`services.xserver.videoDrivers`中移除`"nvidia"`来完全禁用 NVIDIA 的内核模块。如果此方法无效，您还可以手动将相应的内核模块列入黑名单：
 
@@ -264,7 +484,7 @@ Wayland需要启用内核模式设置(kernel mode setting)：
 }
 ```
 
-### [Nouveau](https://zh.wikipedia.org/wiki/nouveau)
+### [Nouveau](https://zh.wikipedia.org/wiki/nouveau)<!--禁用->
 
 可以通过将`nouveau`内核模块加入黑名单来禁用Nouveau驱动：
 
@@ -284,6 +504,10 @@ Wayland需要启用内核模式设置(kernel mode setting)：
 
 <a id="ref2"></a> [2] [Nouveau Persevered In 2017 For Open-Source NVIDIA But 2018 Could Be Much Better 上的讨论](https://www.phoronix.com/forums/forum/linux-graphics-x-org-drivers/open-source-nvidia-linux-nouveau/998310-nouveau-persevered-in-2017-for-open-source-nvidia-but-2018-could-be-much-better#post998316)
 
-<a id="ref2"></a> [3] [Chapter 21. Configuring Power Management Support](https://download.nvidia.com/XFree86/Linux-x86_64/595.71.05/README/powermanagement.html)
+<a id="ref3"></a> [3] [Chapter 21. Configuring Power Management Support](https://download.nvidia.com/XFree86/Linux-x86_64/595.71.05/README/powermanagement.html)
 
 <a id="ref4"></a> [4] [The all new OutputSink feature aka reverse PRIME](https://forums.developer.nvidia.com/t/the-all-new-outputsink-feature-aka-reverse-prime/129828/67)
+
+<a id="ref5"></a> [5] [nixpkgs #429624#comment3189861599](https://github.com/NixOS/nixpkgs/issues/429624#issuecomment-3189861599)
+
+<a id="ref6"></a> [6] [Suspend/resume cycling on system resume](https://discourse.nixos.org/t/suspend-resume-cycling-on-system-resume/32322/12)

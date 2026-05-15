@@ -81,6 +81,10 @@ function escapeHtml(value) {
 const repoBase = "https://github.com/MiRinChan/nixos-wiki/edit/main";
 
 async function readSiteOrigin() {
+  if (process.env.SITE_ORIGIN) {
+    return new URL(process.env.SITE_ORIGIN).origin;
+  }
+
   try {
     const cname = await fs.readFile(cnamePath, "utf8");
     const hostname = cname.split(/\r?\n/).map((line) => line.trim()).find(Boolean);

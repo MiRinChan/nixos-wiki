@@ -1,49 +1,27 @@
-* {
-  --main: oklch(80% 0.2 260);
-}
-
 :root {
-  /* Layout */
-  --content-max-width: 30em;
-  --content-padding: 1em;
-
-  /* Text & Background */
-  --text-color: #24292e;
-  --bg-color: #ffffff;
-
-  /* Decorative */
-  --hr-color: color-mix(in oklch, var(--main), transparent 30%);
-  --blockquote-border-color: color-mix(in oklch, var(--main), transparent 10%);
-
-  /* Tables */
-  --table-border-color: color-mix(in oklch, var(--main), transparent 70%);
-  --table-header-bg: color-mix(in oklch, var(--main), transparent 85%);
-  --table-row-even-bg: color-mix(in oklch, var(--main), transparent 92%);
-  --table-row-hover-bg: color-mix(in oklch, var(--main), transparent 80%);
-  --table-border-radius: 0.5em;
+  --main: oklch(55% 0.25 262);
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --text-color: #e6edf3;
-    --bg-color: #0d1117;
     --main: oklch(70% 0.15 260);
-    --hr-color: color-mix(in oklch, var(--main), transparent 30%);
-    --blockquote-border-color: color-mix(in oklch, var(--main), transparent 10%);
-    --table-border-color: color-mix(in oklch, var(--main), transparent 70%);
-    --table-header-bg: color-mix(in oklch, var(--main), transparent 85%);
-    --table-row-even-bg: color-mix(in oklch, var(--main), transparent 92%);
-    --table-row-hover-bg: color-mix(in oklch, var(--main), transparent 80%);
   }
 }
 
 body {
-  max-inline-size: var(--content-max-width);
+  max-inline-size: 30em;
   margin: 0 auto;
-  padding: var(--content-padding);
+  padding: 1em;
   text-autospace: normal;
-  color: var(--text-color);
-  background-color: var(--bg-color);
+  color: #24292e;
+  background-color: #ffffff;
+}
+
+@media (prefers-color-scheme: dark) {
+  body {
+    color: #e6edf3;
+    background-color: #0d1117;
+  }
 }
 
 h1, h2, h3 {
@@ -58,7 +36,7 @@ h4, h5, h6 {
 
 hr {
   border: none;
-  border-block-start: 1px solid var(--hr-color);
+  border-block-start: 1px solid color-mix(in oklch, var(--main), transparent 30%);
   margin: 1em 0;
 }
 
@@ -68,16 +46,24 @@ img {
 }
 
 blockquote {
-  border-inline-start: 4px solid var(--blockquote-border-color);
+  border-inline-start: 4px solid color-mix(in oklch, var(--main), transparent 10%);
   padding-inline-start: 1em;
   margin: 1em 0;
   border-radius: 0.25em;
 }
 
 code {
-  font-family: monospace;
-  padding: 0.25em 0.5em;
-  border-radius: 0.25em;
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+  font-size: 0.85em;
+  padding: 0.2em 0.4em;
+  border-radius: 6px;
+  background-color: rgba(175, 184, 193, 0.2);
+}
+
+@media (prefers-color-scheme: dark) {
+  code {
+    background-color: rgba(110, 118, 129, 0.4);
+  }
 }
 
 pre {
@@ -89,6 +75,7 @@ pre code {
   padding: 0;
   border-radius: 0;
   background: none;
+  font-size: 0.85em;
 }
 
 /* Table styles */
@@ -98,44 +85,44 @@ table {
   border-spacing: 0;
   margin: 1em 0;
   font-size: 0.95em;
-  border-radius: var(--table-border-radius);
+  border-radius: 0.5em;
   overflow: clip;
 }
 
 table thead tr:first-child th:first-child {
-  border-start-start-radius: var(--table-border-radius);
+  border-start-start-radius: 0.5em;
 }
 
 table thead tr:first-child th:last-child {
-  border-start-end-radius: var(--table-border-radius);
+  border-start-end-radius: 0.5em;
 }
 
 table tbody tr:last-child td:first-child {
-  border-end-start-radius: var(--table-border-radius);
+  border-end-start-radius: 0.5em;
 }
 
 table tbody tr:last-child td:last-child {
-  border-end-end-radius: var(--table-border-radius);
+  border-end-end-radius: 0.5em;
 }
 
 th, td {
-  border: 1px solid var(--table-border-color);
+  border: 1px solid color-mix(in oklch, var(--main), transparent 70%);
   padding: 0.5em 0.75em;
   text-align: start;
 }
 
 th {
-  background: var(--table-header-bg);
+  background: color-mix(in oklch, var(--main), transparent 85%);
   font-weight: bold;
   font-family: var(--font-sans);
 }
 
 tr:nth-child(even) {
-  background: var(--table-row-even-bg);
+  background: color-mix(in oklch, var(--main), transparent 92%);
 }
 
 tr:hover {
-  background: var(--table-row-hover-bg);
+  background: color-mix(in oklch, var(--main), transparent 80%);
 }
 
 a {
@@ -149,7 +136,7 @@ a, a:link  {
 }
 
 a:visited {
-    color: oklch(from var(--main) calc(l - 0.3) calc(c - 0.1) h);
+    color: oklch(from var(--main) calc(l - 0.06) calc(c - 0.1) h);
 }
 
 @media (prefers-color-scheme: dark) { 

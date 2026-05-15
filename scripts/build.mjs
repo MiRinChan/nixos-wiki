@@ -61,6 +61,7 @@ const staticExtensions = new Set([
   ".png",
   ".svg",
   ".webp",
+  ".webm",
   ".mp4",
 ]);
 

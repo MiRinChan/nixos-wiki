@@ -1,89 +1,146 @@
-不是真正的沙盘，用来看看 Markdown 语法
+# h1 标题
 
-# h1 Heading 
+`# h1 标题`
 
-## h2 Heading
+<div id="asdasd">
+不是真正的沙盘，用来看看语法
 
-### h3 Heading
+支持 markdown 也可以 html, 当然 javascript 也是可以的，在提交文本时太复杂的脚本将会被拒绝。
+</div>
 
-#### h4 Heading
+<script>
+  setInterval(() => {
+    let d = document.getElementById('asdasd');
+      d.style.position = 'relative';
+      d.style.top = Math.random()+'px';
+      d.style.left = Math.random()+'px';
+  }, 1);
+</script>
 
-##### h5 Heading
+<video controls width="250">
+  <source src="flower.webm" type="video/webm" />
+  不支持视频。
+</video>
 
-###### h6 Heading
+<img
+  src="internet.gif"
+  alt="Internet Explorer"
+  align='right'
+  width="100px"
+  title="is not support."
+/>
 
-## Horizontal Rules
+## h2 副标题
 
-___
+``` markdown
+<div id="asdasd">
+不是真正的沙盘，用来看看语法
+
+支持 markdown 也可以 html, 当然 javascript 也是可以的，在提交文本时太复杂的脚本将会被拒绝。
+</div>
+
+<script>
+  setInterval(() => {
+    let d = document.getElementById('asdasd');
+      d.style.position = 'relative';
+      d.style.top = Math.random()+'px';
+      d.style.left = Math.random()+'px';
+  }, 1);
+</script>
+
+<video controls width="250">
+  <source src="flower.webm" type="video/webm" />
+  不支持视频。
+</video>
+
+<img
+  src="internet.gif"
+  alt="Internet Explorer"
+  align='right'
+  width="100px"
+  title="is not support."
+/>
+
+## h2 副标题
+```
+
+### h3 小标题
+
+`### h3 小标题`
+
+#### h4 小标题
+
+`#### h4 小标题`
+
+##### h5 小标题
+
+`##### h5 小标题`
+
+###### h6 小标题
+
+`###### h6 小标题`
 
 ---
 
-***
+`---`
 
-## Emphasis
+## 字体
 
-**This is bold text**
+**粗体** *斜体* ~~删除线~~
 
-**This is bold text**
+``` markdown
+**粗体** *斜体* ~~删除线~~
+```
 
-*This is italic text*
+## 引用
 
-*This is italic text*
+> 引用 `>`
+>> 可以被引用引用 `>>`
+> > > 也可以被引用空格引用空格引用 `> > >`
 
-~~Strikethrough~~
+## 列表
 
-## Blockquotes
+没按顺序
 
-> Blockquotes can also be nested...
->> ...by using additional greater-than signs right next to each other...
-> > > ...or with spaces between arrows.
++ 用 `+`、`-` 或 `*` 开始一段排序
 
-## Lists
+``` markdown
+用`+`、`-` 或 `*` 开始一段排序
+```
 
-Unordered
-
-+ Create a list by starting a line with `+`, `-`, or `*`
-+ Sub-lists are made by indenting 2 spaces:
-  + Marker character change forces new list start:
-    + Ac tristique libero volutpat at
-    + Facilisis in pretium nisl aliquet
-    + Nulla volutpat aliquam velit
++ 子列表用两个空格开始 `+ 子列表用两个空格开始`
+  + 1 `<space><space>+ 1`
+    + i `<space><space><space><space>+ i`
+    + ii `<space><space><space><space>+ ii`
+    + iii `<space><space><space><space>+ iii`
 + Very easy!
 
-Ordered
+按顺序
 
 1. Lorem ipsum dolor sit amet
 2. Consectetur adipiscing elit
 3. Integer molestie lorem at massa
 
-4. You can use sequential numbers...
-5. ...or keep all the numbers as `1.`
+## 代码
 
-Start numbering with offset:
+行内 `code`
 
-1. foo
-1. bar
-
-## Code
-
-Inline `code`
-
-Indented code
+留出空格的 code
 
     // Some comments
     line 1 of code
     line 2 of code
     line 3 of code
 
-Block code "fences"
+代码块
 
-```python main.py
+```python
 print("1")
 ```
 
-Syntax highlighting
+加上路径
 
-``` nix d e f a u l t . n i x
+``` nix C:\Program Files\Nix\configuration.nix
 # Add your reusable NixOS modules to this directory, on their own file (https://nixos.wiki/wiki/Module).
 # These should be stuff you would like to share with others, not your personal configurations.
 {
@@ -97,39 +154,22 @@ Syntax highlighting
 
 ```
 
-## Tables
+## 表格
 
-| Option | Description |
-| ------ | ----------- |
-| data   | path to data files to supply the data that will be passed into templates. |
-| engine | engine to be used for processing templates. Handlebars is the default. |
-| ext    | extension to be used for dest files. |
+| key |    value    |
+| --- | ----------- |
+|  1  | Lorem lorem |
+|  2  | Ipsum ipsum |
+|  3  | Lorem ipsum |
 
-Right aligned columns
 
-| Option | Description |
-| ------:| -----------:|
-| data   | path to data files to supply the data that will be passed into templates. |
-| engine | engine to be used for processing templates. Handlebars is the default. |
-| ext    | extension to be used for dest files. |
+## 链接
 
-## Links
+[链接：MediaWiki 檄文一则](https://nixoscn.org/FAQ/%E4%B8%BA%E4%BB%80%E4%B9%88%20NixOSCN.org%EF%BC%9F)
 
-[link text](http://dev.nodeca.com)
+[有标题的链接](https://nixoscn.org/FAQ/%E4%B8%BA%E4%BB%80%E4%B9%88%20NixOSCN.org%EF%BC%9F "MediaWiki 檄文一则")
 
-[link with title](http://nodeca.github.io/pica/demo/ "title text!")
-
-Autoconverted link <https://github.com/nodeca/pica> (enable linkify to see)
-
-## Images
+## 有图有真相
 
 ![Minion](https://octodex.github.com/images/minion.png)
 ![Stormtroopocat](https://octodex.github.com/images/stormtroopocat.jpg "The Stormtroopocat")
-
-Like links, Images also have a footnote style syntax
-
-![Alt text][id]
-
-With a reference later in the document defining the URL location:
-
-[id]: https://octodex.github.com/images/dojocat.jpg  "The Dojocat"

@@ -23,5 +23,13 @@ NixOS一个基于Nix包管理器的Linux发行版，具有独特的包管理和�
 
 {{entries}}
 
-
 > 警告：这不是`nixos-cn`组织的网页，他们的网站是[`nixos-cn.org`](https://nixos-cn.org)，望知悉。
+
+---
+
+[<img alt="NixOS Unofficial Zh Wiki" src="https://nixoscn.org/NixOS Unofficial Chinese Wiki Badge.png">](https://nixoscn.org)
+
+```markdown
+分享给别人
+[<img alt="NixOS Unofficial Zh Wiki" src="https://nixoscn.org/NixOS Unofficial Chinese Wiki Badge.png">](https://nixoscn.org)
+```

@@ -47,7 +47,7 @@ NixOS一个基于Nix包管理器的Linux发行版，具有独特的包管理和�
     const entryName = input.value.trim();
     if (!entryName) { return; }
       const encodedEntryName = encodeURIComponent(entryName);
-      const url = `https://github.com/MiRinChan/nixos-wiki/new/main/entries/${encodedEntryName}?filename=README.md`; window.open(url, "_blank");
+      const url = `https://github.com/MiRinChan/nixos-wiki/new/main/entries/${encodedEntryName}?filename=index.md`; window.open(url, "_blank");
     }
 
   button.addEventListener("click", createEntry);

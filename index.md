@@ -11,22 +11,24 @@
   width="100px"
 />
 
-# 米凛的 NixOS 中文维基
+# <sub style="font-size: small;">米凛的</sub> NixOS 中文维基
 
-欢迎你来到我的维基看！
-
-NixOS一个基于Nix包管理器的Linux发行版，具有独特的包管理和系统配置方式。
-
-你可以用`Control + F`来快速的搜索。
+[NixOS](https://wikipedia.org/wiki/NixOS)一个基于[Nix包管理器](https://wikipedia.org/wiki/Nix_(package_manager))的[GNU/Linux](https://wikipedia.org/wiki/GNU/Linux)发行版，具有独特的包管理和系统配置方式。
 
 ## 词条
 
+你可以用`Control + F`来快速的搜索。
+
 {{entries}}
 
-> 警告：这不是`nixos-cn`组织的网页，他们的网站是[`nixos-cn.org`](https://nixos-cn.org)，望知悉。
+没有你想要的词条？何不动手新建：{{AddEntry}}
 
 ---
 
+欢迎你来到我的维基看！你是一个了不起的人物！
+
+> 警告：这不是`nixos-cn`组织的网页，他们的网站是[`nixos-cn.org`](https://nixos-cn.org)，望知悉。
+
 {{BadgeWithShare}}
 
-{{AddEntry}}
+{{Badge}}{{Badge}}{{Badge}}{{Badge}}{{Badge}}{{Badge}}{{Badge}}{{Badge}}{{Badge}}{{Badge}}{{Badge}}{{Badge}}{{Badge}}{{Badge}}{{Badge}}{{Badge}}

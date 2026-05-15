@@ -40,19 +40,24 @@ body {
   }
 }
 
-h1, h2, h3 {
+h1,
+h2,
+h3 {
   font-weight: bolder;
   font-family: serif;
 }
 
-h4, h5, h6 {
+h4,
+h5,
+h6 {
   font-weight: bold;
   font-family: sans-serif;
 }
 
 hr {
   border: none;
-  border-block-start: 1px solid color-mix(in oklch, var(--main), transparent 30%);
+  border-block-start: 1px solid
+    color-mix(in oklch, var(--main), transparent 30%);
   margin: 1em 0;
 }
 
@@ -62,14 +67,17 @@ img {
 }
 
 blockquote {
-  border-inline-start: 4px solid color-mix(in oklch, var(--main), transparent 10%);
+  border-inline-start: 4px solid
+    color-mix(in oklch, var(--main), transparent 10%);
   padding-inline-start: 1em;
   margin: 1em 0;
   border-radius: 0.25em;
 }
 
 code {
-  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+  font-family:
+    ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono",
+    monospace;
   font-size: 0.85em;
   padding: 0.2em 0.4em;
   border-radius: 6px;
@@ -121,7 +129,8 @@ table tbody tr:last-child td:last-child {
   border-end-end-radius: 0.5em;
 }
 
-th, td {
+th,
+td {
   border: 1px solid color-mix(in oklch, var(--main), transparent 70%);
   padding: 0.5em 0.75em;
   text-align: start;
@@ -146,17 +155,71 @@ a {
   text-decoration: none;
 }
 
-a, a:link  {
-    color: var(--main);
-    text-decoration: underline;
+a,
+a:link {
+  color: var(--main);
+  text-decoration: underline;
 }
 
 a:visited {
-    color: oklch(from var(--main) calc(l - 0.06) calc(c - 0.1) h);
+  color: oklch(from var(--main) calc(l - 0.06) calc(c - 0.1) h);
 }
 
-@media (prefers-color-scheme: dark) { 
-    a:visited {
-        color: oklch(from var(--main) calc(l + 0.6) calc(c + 0.1) h);
-    }
+@media (prefers-color-scheme: dark) {
+  a:visited {
+    color: oklch(from var(--main) calc(l + 0.6) calc(c + 0.1) h);
+  }
+}
+
+input {
+  /* layout */
+  display: inline-block;
+
+
+  font-size: 0.7em;
+  color: black;
+  vertical-align: baseline;
+  line-height: normal;
+  box-sizing: border-box;
+
+  /* box */
+  background-color: white;
+  border: 0; 
+  border-radius: 6px;
+  padding-block: 0.2em;
+  padding-block-start: 0.23em;
+  padding-inline: 0.5em;
+
+  caret-color: #0a84ff;
+  -webkit-rtl-ordering: logical;
+}
+
+button {
+  /* layout */
+  display: inline-block;
+  margin: 0;
+  font-size: 0.64em;
+  color: #000000;
+  text-align: center;
+  --btn-bg: #e5e5e5;
+  background-color: var(--btn-bg);
+  border: 1px solid #FFFFFF;
+  border-radius: 999px;
+  padding-block: 0.2em;
+  padding-inline: 1em;
+  box-sizing: border-box;
+}
+
+button:active {
+  background-color: color-mix(in oklab, var(--btn-bg) 85%, white 15%); 
+  @media (prefers-color-scheme: dark) {
+    background-color: color-mix(in oklab, var(--btn-bg) 85%, black 15%);
+  }
+}
+
+/* input :focus — blue outline as seen in photo */
+input:focus {
+  outline: none;
+  border-color: #0a84ff; /* -apple-system-blue */
+  box-shadow: 0 0 0 3px rgba(10, 132, 255, 0.25);
 }

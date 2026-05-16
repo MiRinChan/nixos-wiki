@@ -278,8 +278,12 @@ input:focus {
   transition: transform 0.2s ease;
 }
 
+.toc-toggle:active {
+  background-color: transparent; 
+}
+
 .toc-toggle::before {
-  content: "▾";
+  content: "🡓";
 }
 
 .toc li.collapsed > .toc-toggle {

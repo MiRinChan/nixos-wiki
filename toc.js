@@ -77,6 +77,8 @@
             li.appendChild(a);
 
             if (node.children.length > 0) {
+                li.classList.add("collapsed"); // 默认折叠
+
                 const toggle = document.createElement("button");
                 toggle.className = "toc-toggle";
                 toggle.setAttribute("aria-label", "展开/折叠");

@@ -274,6 +274,8 @@ async function listEntryChildren(parentDir, parentSegments) {
       const indexPath = path.join(entryDir, "index.md");
       const children = await listEntryChildren(entryDir, segments);
       const hasIndex = await pathExists(indexPath);
+      const isFolded = await pathExists(path.join(entryDir, "FOLD"));
+      const isHidden = await pathExists(path.join(entryDir, "HIDE"));
 
       if (hasIndex || children.length > 0) {
         result.push({
@@ -281,6 +283,8 @@ async function listEntryChildren(parentDir, parentSegments) {
           title: segments.join("/"),
           sourcePath: indexPath,
           hasIndex,
+          isFolded,
+          isHidden,
           children,
         });
       }
@@ -331,15 +335,17 @@ function* walkEntries(entries) {
 }
 
 function buildEntryList(entries, currentSegments = [], options = {}) {
-  if (entries.length === 0) {
+  const visibleEntries = entries.filter((entry) => !entry.isHidden);
+
+  if (visibleEntries.length === 0) {
     return "<p>暂无词条。</p>";
   }
 
-  const links = entries
+  const links = visibleEntries
     .map((entry) => {
       const href = relativeEntryHref(currentSegments, entry.segments);
-      const title = escapeHtml(entry.title);
-      const children = options.includeDescendants && entry.children.length > 0
+      const title = `${escapeHtml(entry.title)}${entry.isFolded ? "..." : ""}`;
+      const children = options.includeDescendants && !entry.isFolded && entry.children.length > 0
         ? `\n${buildEntryList(entry.children, currentSegments, options)}`
         : "";
 
@@ -524,12 +530,112 @@ function parseTemplateParameter(inner, context) {
   };
 }
 
+const htmlBlockTags = new Set([
+  "address",
+  "article",
+  "aside",
+  "base",
+  "basefont",
+  "blockquote",
+  "body",
+  "caption",
+  "center",
+  "col",
+  "colgroup",
+  "dd",
+  "details",
+  "dialog",
+  "dir",
+  "div",
+  "dl",
+  "dt",
+  "fieldset",
+  "figcaption",
+  "figure",
+  "footer",
+  "form",
+  "frame",
+  "frameset",
+  "h1",
+  "h2",
+  "h3",
+  "h4",
+  "h5",
+  "h6",
+  "head",
+  "header",
+  "hr",
+  "html",
+  "iframe",
+  "legend",
+  "li",
+  "link",
+  "main",
+  "menu",
+  "menuitem",
+  "nav",
+  "noframes",
+  "ol",
+  "optgroup",
+  "option",
+  "p",
+  "param",
+  "search",
+  "section",
+  "summary",
+  "table",
+  "tbody",
+  "td",
+  "tfoot",
+  "th",
+  "thead",
+  "title",
+  "tr",
+  "track",
+  "ul",
+]);
+
+function isIndentedCodeLine(line) {
+  return /^(?:    |\t)/.test(line);
+}
+
+function startsHtmlBlock(line) {
+  const match = line.match(/^ {0,3}<([A-Za-z][A-Za-z0-9-]*)\b[^>]*>/);
+  return Boolean(match && htmlBlockTags.has(match[1].toLowerCase()));
+}
+
+function updateHtmlBlockDepth(line, currentDepth) {
+  const tagPattern = /<\s*(\/?)\s*([A-Za-z][A-Za-z0-9-]*)\b[^>]*>/g;
+  let depth = currentDepth;
+  let match;
+
+  while ((match = tagPattern.exec(line)) !== null) {
+    const tag = match[2].toLowerCase();
+
+    if (!htmlBlockTags.has(tag)) {
+      continue;
+    }
+
+    if (match[1]) {
+      depth = Math.max(0, depth - 1);
+      continue;
+    }
+
+    if (!/\/\s*>$/.test(match[0])) {
+      depth += 1;
+    }
+  }
+
+  return depth;
+}
+
 async function expandMarkdownTemplates(markdown, context) {
   let result = "";
   let chunk = "";
   let inFence = false;
   let fenceMarker = "";
   let fenceSize = 0;
+  let htmlBlockDepth = 0;
   const lines = markdown.match(/[^\n]*\n|[^\n]+/g) || [""];
 
   async function flushChunk() {
@@ -566,13 +672,18 @@ async function expandMarkdownTemplates(markdown, context) {
       continue;
     }
 
-    if (/^(?:    |\t)/.test(line)) {
+    const isHtmlBlockLine = htmlBlockDepth > 0 || startsHtmlBlock(line);
+
+    if (isIndentedCodeLine(line) && !isHtmlBlockLine) {
       await flushChunk();
       result += line;
       continue;
     }
 
     chunk += line;
+    if (isHtmlBlockLine) {
+      htmlBlockDepth = updateHtmlBlockDepth(line, htmlBlockDepth);
+    }
   }
 
   await flushChunk();

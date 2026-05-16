@@ -8,7 +8,7 @@
                 <td style="border: 0;">
                     <div __comment="我操！恶俗啊！" style="margin-left: .3em; color: white;">
                         人生自古谁无死？不幸的，<span style="margin: .0em .2em .0em .2em; padding: .0em .2em .0em .2em; border: thin solid;"><b>
-                        NixOS 中文维基
+                        {{{who|{{{1|NixOS 中文维基}}}}}}
                         </b></span>已经逝世，因此无法继续与您互动，让我们永远缅怀它。
                     </div>
                 </td>

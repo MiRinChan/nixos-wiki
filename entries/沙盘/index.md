@@ -222,3 +222,13 @@ print("1")
 ```markdown
 {{ThankyouForward|支援了参数转发|signature=张三}}
 ```
+
+### 特殊模板
+
+#### 词条
+
+{{entries}}
+
+```markdown
+{{entries}}
+```

@@ -184,7 +184,7 @@ input {
 
   /* box */
   background-color: white;
-  border: 0; 
+  border: 1px solid #e6e6e6; 
   border-radius: 6px;
   padding-block: 0.2em;
   padding-block-start: 0.23em;
@@ -201,11 +201,12 @@ button {
   font-size: 0.64em;
   color: #000000;
   text-align: center;
-  --btn-bg: #e5e5e5;
+  --btn-bg: #e4e4e4;
   background-color: var(--btn-bg);
   border: 1px solid #FFFFFF;
   border-radius: 999px;
-  padding-block: 0.2em;
+  padding-block: 0.35em;
+  padding-block-end: 0.37em;
   padding-inline: 1em;
   box-sizing: border-box;
 }

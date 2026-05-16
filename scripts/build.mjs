@@ -35,6 +35,17 @@ const maxMarkdownTemplateDepth = 32;
 
 marked.use({
   renderer: {
+    heading({ tokens, depth }) {
+      const text = this.parser.parseInline(tokens);
+      // Extract explicit id from inline HTML like <a id="foo"></a>
+      const explicitId = text.match(/<[^>]*?\bid\s*=\s*"([^"]*)"[^>]*>/i)?.[1];
+      const id = explicitId || text
+        .replace(/<[^>]*>/g, "")
+        .toLowerCase()
+        .replace(/[^\w\u4e00-\u9fff\u3400-\u4dbf\uf900-\ufaff-]+/g, "-")
+        .replace(/^-+|-+$/g, "");
+      return `<h${depth} id="${id}">${text}</h${depth}>`;
+    },
     code({ text, lang: infostring }) {
       // 正则匹配 语言:文件名 或 语言 文件名 (例如 js:app.js 或 js app.js)
       const match = infostring?.match(/^([^\s:]+)[:\s](.+)$/);
@@ -153,6 +164,25 @@ function escapeAttribute(value) {
     .replaceAll('"', "&quot;")
     .replaceAll("<", "&lt;")
     .replaceAll(">", "&gt;");
+}
+
+function checkDuplicateHeadings(html, context) {
+  const headingIdPattern = /<(h[2-6])\b[^>]*?\bid\s*=\s*"([^"]*)"[^>]*>/gi;
+  const ids = new Map();
+  let match;
+
+  while ((match = headingIdPattern.exec(html)) !== null) {
+    const id = match[2];
+    const tag = match[1];
+    if (ids.has(id)) {
+      const prev = ids.get(id);
+      console.warn(
+        `WARNING: ${describeContext(context)}: 重复的标题 ID "${id}"（${prev} 和 ${tag}）`,
+      );
+    } else {
+      ids.set(id, tag);
+    }
+  }
 }
 
 function unescapeAttributeUrl(value) {
@@ -849,7 +879,12 @@ async function renderHome(entries) {
     callStack: [],
   });
 
-  return marked.parse(expandedMarkdown);
+  const html = marked.parse(expandedMarkdown);
+  checkDuplicateHeadings(html, {
+    sourcePath: homePath,
+    sourceName: "index.md",
+  });
+  return html;
 }
 
 async function renderEntry(entry) {
@@ -862,7 +897,12 @@ async function renderEntry(entry) {
     callStack: [],
   });
 
-  return marked.parse(expandedMarkdown);
+  const html = marked.parse(expandedMarkdown);
+  checkDuplicateHeadings(html, {
+    sourcePath: entry.sourcePath,
+    sourceName: entry.hasIndex ? path.relative(rootDir, entry.sourcePath) : `entries/${entry.segments.join("/")}/index.md`,
+  });
+  return html;
 }
 
 async function copyStaticAssets() {

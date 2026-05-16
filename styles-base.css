@@ -224,3 +224,118 @@ input:focus {
   border-color: #0a84ff; /* -apple-system-blue */
   box-shadow: 0 0 0 3px rgba(10, 132, 255, 0.25);
 }
+
+/* ===== TOC (Table of Contents) ===== */
+
+:root {
+  --toc-width: 14em;
+}
+
+.toc {
+  font-size: 0.85em;
+  line-height: 1.6;
+}
+
+.toc ul {
+  list-style: none;
+  padding-inline-start: 1.2em;
+  margin: 0;
+}
+
+.toc li {
+  position: relative;
+}
+
+.toc a {
+  text-decoration: none;
+  color: inherit;
+  display: inline-block;
+  padding: 0.15em 0;
+}
+
+.toc a:hover {
+  color: var(--main);
+}
+
+.toc a.active {
+  color: var(--main);
+  font-weight: bold;
+}
+
+/* Toggle button */
+.toc-toggle {
+  display: inline-block;
+  width: 1.4em;
+  height: 1.4em;
+  margin-inline-start: 0.2em;
+  padding: 0;
+  border: none;
+  background: none;
+  cursor: pointer;
+  font-size: 0.75em;
+  vertical-align: middle;
+  color: inherit;
+  opacity: 0.5;
+  transition: transform 0.2s ease;
+}
+
+.toc-toggle::before {
+  content: "▾";
+}
+
+.toc li.collapsed > .toc-toggle {
+  transform: rotate(-90deg);
+}
+
+.toc-toggle:hover {
+  opacity: 1;
+}
+
+/* Collapsed children */
+.toc li.collapsed > ul {
+  display: none;
+}
+
+/* ===== Responsive TOC ===== */
+
+/* Mobile: inline before content */
+@media (max-width: 47.99em) {
+  .toc {
+    margin-block-end: 1.5em;
+    padding: 0.75em 1em;
+    border: 1px solid color-mix(in oklch, var(--main), transparent 70%);
+    border-radius: 0.5em;
+    background: color-mix(in oklch, var(--main), transparent 97%);
+  }
+
+  @media (prefers-color-scheme: dark) {
+    .toc {
+      background: color-mix(in oklch, var(--main), transparent 93%);
+    }
+  }
+}
+
+/* Desktop: sticky sidebar on the left, only when TOC is present */
+@media (min-width: 48em) {
+  body.has-toc {
+    padding-inline-start: calc(var(--toc-width) + 2em);
+  }
+
+  .toc {
+    position: fixed;
+    inset-block-start: 1em;
+    inset-inline-start: max(1em, calc((100vw - 46em) / 2 - var(--toc-width) - 2em));
+    inline-size: var(--toc-width);
+    max-block-size: calc(100vh - 2em);
+    overflow-y: auto;
+    padding: 0.5em 0;
+    scrollbar-width: thin;
+  }
+
+  /* Ensure TOC doesn't go off-screen on narrow viewports */
+  @media (max-width: calc(46em + var(--toc-width) + 4em)) {
+    .toc {
+      inset-inline-start: 1em;
+    }
+  }
+}

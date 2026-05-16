@@ -468,7 +468,7 @@ boot.kernelParams = [ "module_blacklist=amdgpu" ];
 
 ## 禁用
 
-### 来自英伟达的内核模块<!--禁用->
+### 来自英伟达的内核模块 <a id="禁用-英伟达内核模块"></a>
 
 通常情况下，可以通过从`services.xserver.videoDrivers`中移除`"nvidia"`来完全禁用 NVIDIA 的内核模块。如果此方法无效，您还可以手动将相应的内核模块列入黑名单：
 
@@ -484,7 +484,7 @@ boot.kernelParams = [ "module_blacklist=amdgpu" ];
 }
 ```
 
-### [Nouveau](https://zh.wikipedia.org/wiki/nouveau)<!--禁用->
+### [Nouveau](https://zh.wikipedia.org/wiki/nouveau) <a id="禁用-nouveau"></a>
 
 可以通过将`nouveau`内核模块加入黑名单来禁用Nouveau驱动：
 

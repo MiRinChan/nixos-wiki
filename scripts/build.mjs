@@ -417,7 +417,7 @@ function buildEntryList(entries, currentSegments = [], options = {}) {
   const links = visibleEntries
     .map((entry) => {
       const href = relativeEntryHref(currentSegments, entry.segments);
-      const title = `${escapeHtml(entry.title)}${entry.isFolded ? "..." : ""}`;
+      const title = `${escapeHtml(entry.title)}${entry.isFolded ? "…" : ""}`;
       const children = options.includeDescendants && !entry.isFolded && entry.children.length > 0
         ? `\n${buildEntryList(entry.children, currentSegments, options)}`
         : "";

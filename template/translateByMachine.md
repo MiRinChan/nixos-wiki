@@ -1,1 +1,2 @@
-> <span style="font-family: serif; font-weight: bold;">对译者 & 对读者：该段使用机器翻译，需要校对。</span>
+> [!IMPORTANT]
+> 对译者 & 对读者：该段使用机器翻译，需要校对。

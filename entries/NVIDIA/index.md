@@ -10,7 +10,7 @@
 
 > 注意：自驱动版本 560 开始，你也将要通过选项`hardware.nvidia.open`的布尔值来决定选择开源模块(`true`)还是专有模块(`false`)。
 >
-> 尽管开源内核模块只支持图灵(Turing)架构以及更新的 GPU（GeForce RTX 20 与 GeForce GTX 16 开始），但开源的比专有的内核模块更受青睐，且计划逐步代替专有的内核模块[<sup>1</sup>](#ref1)。
+> 尽管开源内核模块只支持图灵(Turing)架构以及更新的 GPU（GeForce RTX 20 与 GeForce GTX 16 开始），但开源的比专有的内核模块更受青睐，且计划逐步代替专有的内核模块[^1]。
 >
 > 即使在使用开放模块时，也要确保允许使用非自由(unfree)软件，因为驱动程序的用户空间部分仍然是专有的。其他非免费的英伟达包有`nvidia-x11`、`nvidia-settings`以及`nvidia-persistenced`。
 
@@ -59,7 +59,7 @@
 
 #### [Nouveau](https://zh.wikipedia.org/wiki/nouveau)
 
-Nouveau 是英伟达显卡的免费开源驱动程序，提供所有英伟达显卡的图形加速功能。一般不推荐使用它，因为与 英伟达的官方内核模块相比，其性能明显较差，且对许多英伟达显卡不支持 reclocking（动态调整时钟频率）[<sup>2</sup>](#ref2)。尽管如此，对于希望使用完全免费开源操作系统的人来说，Nouveau 仍然是可行的选择，因为它不包含任何专有组件，这一点与 NVIDIA 的内核模块和用户空间库不同。
+Nouveau 是英伟达显卡的免费开源驱动程序，提供所有英伟达显卡的图形加速功能。一般不推荐使用它，因为与 英伟达的官方内核模块相比，其性能明显较差，且对许多英伟达显卡不支持 reclocking（动态调整时钟频率）[^2]。尽管如此，对于希望使用完全免费开源操作系统的人来说，Nouveau 仍然是可行的选择，因为它不包含任何专有组件，这一点与 NVIDIA 的内核模块和用户空间库不同。
 
 当启用图形功能时，Nouveau 默认会被启用，无需额外配置。
 
@@ -77,7 +77,7 @@ Nouveau 是英伟达显卡的免费开源驱动程序，提供所有英伟达显
 
 #### [`hardware.nvidia.powerManagement.enable`](https://search.nixos.org/options?channel=25.11&query=hardware.nvidia.powerManagement.enable)
 
-令英伟达驱动支持睡眠（挂起至内存）和休眠（挂起至磁盘）的电源管理操作，如x86_64平台上的ACPI S3和S4。[<sup>3</sup>](#ref3)
+令英伟达驱动支持睡眠（挂起至内存）和休眠（挂起至磁盘）的电源管理操作，如x86_64平台上的ACPI S3和S4。[^3]
 
 ```nix configuration.nix
 {
@@ -189,7 +189,7 @@ exec "$@"
 
 #### 反向同步模式(reverse sync modes)
 
-> 注意：注意：反向同步模式自 NixOS 23.05 和 NVIDIA 驱动程序版本 460.39 起可用，但仍处于实验阶段，存在一些缺陷[<sup>4</sup>](#ref4)。实际效果可能因系统而异。反向同步模式与同步模式不兼容，要求使用支持`services.xserver.displayManager.setupCommands`选项的桌面管理器，例如LightDM、GDM和SDDM。
+> 注意：注意：反向同步模式自 NixOS 23.05 和 NVIDIA 驱动程序版本 460.39 起可用，但仍处于实验阶段，存在一些缺陷[^4]。实际效果可能因系统而异。反向同步模式与同步模式不兼容，要求使用支持`services.xserver.displayManager.setupCommands`选项的桌面管理器，例如LightDM、GDM和SDDM。
 
 常规同步模式和反向同步模式的区别在于，独显配置为主要输出设备，允许向连接到它的外部显示器显示图像，而不是向集显（更常见）显示图像。
 
@@ -350,7 +350,7 @@ services:
 - 更新 SHA256 哈希值以匹配你想要使用的新版本。
 - 更新配置后，运行 `sudo nixos-rebuild switch` 以应用更改并加载指定的驱动版本。
 
-这样可以固定 NixOS 安装中使用的具体驱动版本。如果你正在运行最新的内核，可能需要这样做，因为打包的驱动可能无法正常构建[<sup>5</sup>](#ref5)。
+这样可以固定 NixOS 安装中使用的具体驱动版本。如果你正在运行最新的内核，可能需要这样做，因为打包的驱动可能无法正常构建[^5]。
 
 ## 疑难解答
 
@@ -397,7 +397,7 @@ vsync = true;
 
 如果你有现代英伟达显卡（图灵架构或更新），你可能还想了解 `hardware.nvidia.powerManagement.finegrained` 选项：[动态电源管理](https://download.nvidia.com/XFree86/Linux-x86_64/460.73.01/README/dynamicpowermanagement.html)
 
-[一个潜在的修复方案](https://discourse.nixos.org/t/suspend-resume-cycling-on-system-resume/32322/12) 是及时中断 gnome-shell，使其在休眠时不再尝试访问图形硬件[<sup>6</sup>](#ref6)。其全部目的是在系统休眠前手动"暂停"GNOME Shell 进程，并在系统唤醒后"取消暂停"它。
+[一个潜在的修复方案](https://discourse.nixos.org/t/suspend-resume-cycling-on-system-resume/32322/12) 是及时中断 gnome-shell，使其在休眠时不再尝试访问图形硬件[^6]。其全部目的是在系统休眠前手动"暂停"GNOME Shell 进程，并在系统唤醒后"取消暂停"它。
 
 ---
 
@@ -498,16 +498,14 @@ boot.kernelParams = [ "module_blacklist=amdgpu" ];
 
 请注意，同时禁用英伟达内核模块和Nouveau会彻底禁用GPU。
 
-## 脚注
+[^1]: [NVIDIA Transitions Fully Towards Open-Source GPU Kernel Modules](https://developer.nvidia.com/blog/nvidia-transitions-fully-towards-open-source-gpu-kernel-modules/)
 
-<a id="ref1"></a> [1] [NVIDIA Transitions Fully Towards Open-Source GPU Kernel Modules](https://developer.nvidia.com/blog/nvidia-transitions-fully-towards-open-source-gpu-kernel-modules/)
+[^2]: [Nouveau Persevered In 2017 For Open-Source NVIDIA But 2018 Could Be Much Better 上的讨论](https://www.phoronix.com/forums/forum/linux-graphics-x-org-drivers/open-source-nvidia-linux-nouveau/998310-nouveau-persevered-in-2017-for-open-source-nvidia-but-2018-could-be-much-better#post998316)
 
-<a id="ref2"></a> [2] [Nouveau Persevered In 2017 For Open-Source NVIDIA But 2018 Could Be Much Better 上的讨论](https://www.phoronix.com/forums/forum/linux-graphics-x-org-drivers/open-source-nvidia-linux-nouveau/998310-nouveau-persevered-in-2017-for-open-source-nvidia-but-2018-could-be-much-better#post998316)
+[^3]: [Chapter 21. Configuring Power Management Support](https://download.nvidia.com/XFree86/Linux-x86_64/595.71.05/README/powermanagement.html)
 
-<a id="ref3"></a> [3] [Chapter 21. Configuring Power Management Support](https://download.nvidia.com/XFree86/Linux-x86_64/595.71.05/README/powermanagement.html)
+[^4]: [The all new OutputSink feature aka reverse PRIME](https://forums.developer.nvidia.com/t/the-all-new-outputsink-feature-aka-reverse-prime/129828/67)
 
-<a id="ref4"></a> [4] [The all new OutputSink feature aka reverse PRIME](https://forums.developer.nvidia.com/t/the-all-new-outputsink-feature-aka-reverse-prime/129828/67)
+[^5]: [nixpkgs #429624#comment3189861599](https://github.com/NixOS/nixpkgs/issues/429624#issuecomment-3189861599)
 
-<a id="ref5"></a> [5] [nixpkgs #429624#comment3189861599](https://github.com/NixOS/nixpkgs/issues/429624#issuecomment-3189861599)
-
-<a id="ref6"></a> [6] [Suspend/resume cycling on system resume](https://discourse.nixos.org/t/suspend-resume-cycling-on-system-resume/32322/12)
+[^6]: [Suspend/resume cycling on system resume](https://discourse.nixos.org/t/suspend-resume-cycling-on-system-resume/32322/12)

@@ -232,3 +232,114 @@ print("1")
 ```markdown
 {{entries}}
 ```
+
+## 任务列表 (Task Lists)
+
+- [x] 已完成的任务
+- [x] 另一项已完成
+- [ ] 待办事项
+- [ ] 另一项待办
+
+```markdown
+- [x] 已完成的任务
+- [x] 另一项已完成
+- [ ] 待办事项
+- [ ] 另一项待办
+```
+
+## 自动链接 (Autolinks)
+
+https://nixoscn.org — 裸 URL 自动变成链接。
+
+```markdown
+https://nixoscn.org — 裸 URL 自动变成链接。
+```
+
+## 对齐表格 (Aligned Table)
+
+| 左对齐 | 居中 | 右对齐 |
+| :--- | :---: | ---: |
+| 左 | 中 | 右 |
+| lorem | ipsum | dolor |
+
+```markdown
+| 左对齐 | 居中 | 右对齐 |
+| :--- | :---: | ---: |
+| 左 | 中 | 右 |
+| lorem | ipsum | dolor |
+```
+
+## Diff 高亮 (Diff Highlighting)
+
+```diff
+- 被删除的行
++ 新增的行
+  未修改的行
+```
+
+## Mermaid 图表 (Mermaid Diagrams)
+
+```mermaid
+graph TD
+    A[开始] --> B{判断}
+    B -->|是| C[执行]
+    B -->|否| D[跳过]
+    C --> E[结束]
+    D --> E
+```
+
+## 提示框 (Alerts / Callouts)
+
+> [!NOTE]
+> 这是一条备注信息。
+
+> [!TIP]
+> 这是一条小贴士。
+
+> [!IMPORTANT]
+> 这是一条重要信息。
+
+> [!WARNING]
+> 这是一条警告。
+
+> [!CAUTION]
+> 这是一条危险警告。
+
+```markdown
+> [!NOTE]
+> 这是一条备注信息。
+
+> [!TIP]
+> 这是一条小贴士。
+
+> [!IMPORTANT]
+> 这是一条重要信息。
+
+> [!WARNING]
+> 这是一条警告。
+
+> [!CAUTION]
+> 这是一条危险警告。
+```
+
+## 键盘按键 (Keyboard Keys)
+
+按下 ||Ctrl|| + ||C|| 复制，按下 ||Ctrl|| + ||V|| 粘贴。
+
+```markdown
+按下 ||Ctrl|| + ||C|| 复制，按下 ||Ctrl|| + ||V|| 粘贴。
+```
+
+## 脚注 (Footnotes)
+
+这是一段带脚注的文本[^sandbox-1]。脚注会自动渲染到页面底部[^sandbox-2]。
+
+[^sandbox-1]: 这是第一条脚注的内容。
+[^sandbox-2]: 这是第二条脚注的内容，支持**粗体**、`代码`等格式。
+
+```markdown
+这是一段带脚注的文本[^sandbox-1]。脚注会自动渲染到页面底部[^sandbox-2]。
+
+[^sandbox-1]: 这是第一条脚注的内容。
+[^sandbox-2]: 这是第二条脚注的内容，支持**粗体**、`代码`等格式。
+```

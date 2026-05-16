@@ -133,7 +133,6 @@ th,
 td {
   border: 1px solid color-mix(in oklch, var(--main), transparent 70%);
   padding: 0.5em 0.75em;
-  text-align: start;
 }
 
 th {
@@ -336,6 +335,147 @@ input:focus {
   @media (max-width: calc(46em + var(--toc-width) + 4em)) {
     .toc {
       inset-inline-start: 1em;
+    }
+  }
+}
+
+/* ===== GFM Alerts / Callouts ===== */
+
+.markdown-alert {
+  border-inline-start: 4px solid;
+  padding-inline: 1em;
+  padding-block: 0.001em;
+  margin: 1em 0;
+  border-radius: 0.25em;
+}
+
+.markdown-alert-title {
+  font-weight: bold;
+  margin-block: 0.6em;
+}
+
+.markdown-alert > p:not(.markdown-alert-title) {
+  margin-block: 0.6em;
+}
+
+.markdown-alert-title svg {
+  vertical-align: middle;
+  margin-inline-end: 0.3em;
+}
+
+/* Note — blue */
+.markdown-alert-note {
+  border-color: oklch(55% 0.18 250);
+  background: oklch(55% 0.18 250 / 0.08);
+  .markdown-alert-title {
+    color: oklch(55% 0.18 250);
+  }
+  .markdown-alert-title svg {
+    fill: oklch(55% 0.18 250);
+  }
+}
+
+/* Tip — green */
+.markdown-alert-tip {
+  border-color: oklch(55% 0.18 145);
+  background: oklch(55% 0.18 145 / 0.08);
+  .markdown-alert-title {
+    color: oklch(55% 0.18 145);
+  }
+  .markdown-alert-title svg {
+    fill: oklch(55% 0.18 145);
+  }
+}
+
+/* Important — purple */
+.markdown-alert-important {
+  border-color: oklch(50% 0.18 300);
+  background: oklch(50% 0.18 300 / 0.08);
+  .markdown-alert-title {
+    color: oklch(50% 0.18 300);
+  }
+  .markdown-alert-title svg {
+    fill: oklch(50% 0.18 300);
+  }
+}
+
+/* Warning — yellow */
+.markdown-alert-warning {
+  border-color: oklch(60% 0.18 85);
+  background: oklch(60% 0.18 85 / 0.08);
+  .markdown-alert-title {
+    color: oklch(60% 0.18 85);
+  }
+  .markdown-alert-title svg {
+    fill: oklch(60% 0.18 85);
+  }
+}
+
+/* Caution — red */
+.markdown-alert-caution {
+  border-color: oklch(50% 0.2 25);
+  background: oklch(50% 0.2 25 / 0.08);
+  .markdown-alert-title {
+    color: oklch(50% 0.2 25);
+  }
+  .markdown-alert-title svg {
+    fill: oklch(50% 0.2 25);
+  }
+}
+
+@media (prefers-color-scheme: dark) {
+  .markdown-alert-note {
+    border-color: oklch(70% 0.12 250);
+    background: oklch(70% 0.12 250 / 0.1);
+    .markdown-alert-title {
+      color: oklch(70% 0.12 250);
+    }
+    .markdown-alert-title svg {
+      fill: oklch(70% 0.12 250);
+    }
+  }
+
+  .markdown-alert-tip {
+    border-color: oklch(70% 0.12 145);
+    background: oklch(70% 0.12 145 / 0.1);
+    .markdown-alert-title {
+      color: oklch(70% 0.12 145);
+    }
+    .markdown-alert-title svg {
+      fill: oklch(70% 0.12 145);
+    }
+  }
+
+  .markdown-alert-important {
+    border-color: oklch(65% 0.12 300);
+    background: oklch(65% 0.12 300 / 0.1);
+    .markdown-alert-title {
+      color: oklch(65% 0.12 300);
+    }
+    .markdown-alert-title svg {
+      fill: oklch(65% 0.12 300);
+    }
+  }
+
+  .markdown-alert-warning {
+    border-color: oklch(75% 0.12 85);
+    background: oklch(75% 0.12 85 / 0.1);
+    .markdown-alert-title {
+      color: oklch(75% 0.12 85);
+    }
+    .markdown-alert-title svg {
+      fill: oklch(75% 0.12 85);
+    }
+  }
+
+  .markdown-alert-caution {
+    border-color: oklch(65% 0.15 25);
+    background: oklch(65% 0.15 25 / 0.1);
+    .markdown-alert-title {
+      color: oklch(65% 0.15 25);
+    }
+    .markdown-alert-title svg {
+      fill: oklch(65% 0.15 25);
     }
   }
 }

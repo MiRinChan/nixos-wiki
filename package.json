@@ -8,7 +8,9 @@
   },
   "dependencies": {
     "highlight.js": "^11.11.1",
-    "marked": "^16.4.1"
+    "marked": "^16.4.1",
+    "marked-alert": "^2.1.2",
+    "marked-footnote": "^1.4.0"
   },
   "devDependencies": {
     "chokidar-cli": "^3.0.0",

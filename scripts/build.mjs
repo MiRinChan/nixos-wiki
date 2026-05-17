@@ -311,6 +311,15 @@ function escapeAttribute(value) {
     .replaceAll(">", "&gt;");
 }
 
+function parseCategories(markdown) {
+  const categories = [];
+  const cleanMarkdown = markdown.replace(/^\[\[Category:([^\]]+)\]\]\s*$/gm, (match, name) => {
+    categories.push(name.trim());
+    return '';
+  });
+  return { categories, cleanMarkdown };
+}
+
 function checkDuplicateHeadings(html, context) {
   const headingIdPattern = /<(h[2-6])\b[^>]*?\bid\s*=\s*"([^"]*)"[^>]*>/gi;
   const ids = new Map();
@@ -1039,8 +1048,11 @@ async function renderHome(entries) {
 }
 
 async function renderEntry(entry) {
-  const markdown = entry.hasIndex ? await fs.readFile(entry.sourcePath, "utf8") : "{{entries}}";
-  const expandedMarkdown = await expandMarkdownTemplates(markdown, {
+  const rawMarkdown = entry.hasIndex ? await fs.readFile(entry.sourcePath, "utf8") : "{{entries}}";
+  const { categories, cleanMarkdown } = entry.hasIndex ? parseCategories(rawMarkdown) : { categories: [], cleanMarkdown: rawMarkdown };
+  entry._categories = categories;
+
+  const expandedMarkdown = await expandMarkdownTemplates(cleanMarkdown, {
     sourcePath: entry.sourcePath,
     sourceName: entry.hasIndex ? path.relative(rootDir, entry.sourcePath) : `entries/${entry.segments.join("/")}/index.md`,
     entriesHtml: buildEntryList(entry.children, entry.segments),
@@ -1048,12 +1060,80 @@ async function renderEntry(entry) {
     callStack: [],
   });
 
-  const html = marked.parse(expandedMarkdown);
+  let html = marked.parse(expandedMarkdown);
+
+  if (categories.length > 0) {
+    const links = categories.map((cat) => {
+      const href = relativeEntryHref(entry.segments, ["Category:" + cat]);
+      return `<a href="${href}">${escapeHtml(cat)}</a>`;
+    }).join("，");
+    html += `\n<div class="category-links">\n<hr>\n<span>分类：${links}</span>\n</div>`;
+  }
+
   checkDuplicateHeadings(html, {
     sourcePath: entry.sourcePath,
     sourceName: entry.hasIndex ? path.relative(rootDir, entry.sourcePath) : `entries/${entry.segments.join("/")}/index.md`,
   });
   return html;
+}
+
+function isEntryHiddenRecursively(entry, allEntries) {
+  if (entry.isHidden) return true;
+  if (entry.segments.length <= 1) return false;
+  const parentSegments = entry.segments.slice(0, -1);
+  const parent = allEntries.find(
+    (e) => e.segments.length === parentSegments.length && parentSegments.every((s, i) => s === e.segments[i]),
+  );
+  return parent ? isEntryHiddenRecursively(parent, allEntries) : false;
+}
+
+function buildCategoryEntryList(segmentsByCategory, childCategoriesByParent, allEntries, categoryName) {
+  const entrySegments = segmentsByCategory.get(categoryName);
+  const children = childCategoriesByParent.get(categoryName);
+
+  if ((!entrySegments || entrySegments.size === 0) && (!children || children.size === 0)) {
+    return "<p>暂无词条。</p>";
+  }
+
+  const flatEntries = [...allEntries];
+  let parts = [];
+
+  // Entry listing
+  if (entrySegments) {
+    const visible = [...entrySegments]
+      .map((key) => flatEntries.find((e) => e.segments.join("\0") === key))
+      .filter(Boolean)
+      .filter((entry) => !isEntryHiddenRecursively(entry, flatEntries));
+
+    if (visible.length > 0) {
+      const links = visible
+        .map((entry) => {
+          const href = relativeEntryHref(["Category:" + categoryName], entry.segments);
+          const title = `${escapeHtml(entry.title)}${entry.isFolded ? "…" : ""}`;
+          return `      <li><a href="${href}">${title}</a></li>`;
+        })
+        .join("\n");
+      parts.push(`<ul>\n${links}\n    </ul>`);
+    }
+  }
+
+  // Subcategory listing
+  if (children && children.size > 0) {
+    const childLinks = [...children]
+      .sort((a, b) => a.localeCompare(b, "zh-CN"))
+      .map((childName) => {
+        const href = relativeEntryHref(["Category:" + categoryName], ["Category:" + childName]);
+        return `      <li><a href="${href}">${escapeHtml(childName)}</a></li>`;
+      })
+      .join("\n");
+    parts.push(`<p><strong>子分类</strong></p>\n<ul>\n${childLinks}\n    </ul>`);
+  }
+
+  if (parts.length === 0) {
+    return "<p>暂无词条。</p>";
+  }
+
+  return parts.join("\n");
 }
 
 async function copyStaticAssets() {
@@ -1103,6 +1183,7 @@ async function build() {
   const template = await fs.readFile(templatePath, "utf8");
   const entries = await listEntries();
   const entryTopLevelSegments = new Set(entries.map((entry) => entry.segments[0]));
+  const categoriesDir = path.join(rootDir, "categories");
 
   await fs.rm(outDir, { recursive: true, force: true });
   await fs.mkdir(outDir, { recursive: true });
@@ -1118,6 +1199,94 @@ async function build() {
 
   const home = renderPage(template, siteConfig.siteTitle, await renderHome(entries), buildEditUrl("index.md"), [], '', escapeHtml(siteConfig.siteTitle), entryTopLevelSegments);
   await fs.writeFile(path.join(outDir, "index.html"), home, "utf8");
+
+  // Collect categories from all entries
+  const segmentsByCategory = new Map();
+  for (const entry of walkEntries(entries)) {
+    const cats = entry._categories || [];
+    for (const cat of cats) {
+      if (!segmentsByCategory.has(cat)) {
+        segmentsByCategory.set(cat, new Set());
+      }
+      segmentsByCategory.get(cat).add(entry.segments.join("\0"));
+    }
+  }
+
+  // Collect parent-child relationships from category description files
+  // Also ensure parent categories (which may have no direct entries) get entries
+  const childCategoriesByParent = new Map();
+  for (const [categoryName] of segmentsByCategory) {
+    const catIndexPath = path.join(categoriesDir, categoryName, "index.md");
+    if (await pathExists(catIndexPath)) {
+      const catMarkdown = await fs.readFile(catIndexPath, "utf8");
+      const { categories: parentCats } = parseCategories(catMarkdown);
+      for (const parentCat of parentCats) {
+        if (!childCategoriesByParent.has(parentCat)) {
+          childCategoriesByParent.set(parentCat, new Set());
+        }
+        childCategoriesByParent.get(parentCat).add(categoryName);
+        // Ensure parent category also gets an entry in segmentsByCategory (empty set = no entries, but page is built)
+        if (!segmentsByCategory.has(parentCat)) {
+          segmentsByCategory.set(parentCat, new Set());
+        }
+      }
+    }
+  }
+
+  // Build category listing pages
+  const allEntries = [...walkEntries(entries)];
+  for (const [categoryName] of segmentsByCategory) {
+    // Check for optional category description markdown
+    const catIndexPath = path.join(categoriesDir, categoryName, "index.md");
+    let introHtml = '';
+    if (await pathExists(catIndexPath)) {
+      const catMarkdown = await fs.readFile(catIndexPath, "utf8");
+      const { cleanMarkdown } = parseCategories(catMarkdown);
+      const expanded = await expandMarkdownTemplates(cleanMarkdown, {
+        sourcePath: catIndexPath,
+        sourceName: `categories/${categoryName}/index.md`,
+        entriesHtml: '',
+        depth: 0,
+        callStack: [],
+      });
+      introHtml = marked.parse(expanded);
+    }
+
+    const listingHtml = buildCategoryEntryList(segmentsByCategory, childCategoriesByParent, allEntries, categoryName);
+    const content = introHtml ? `${introHtml}\n${listingHtml}` : listingHtml;
+
+    const heading = `分类：${escapeHtml(categoryName)}`;
+    const catSegments = ["Category:" + categoryName];
+    const assetPrefix = '../'.repeat(siteConfig.entryUrlPrefix.split("/").length + 1);
+    const page = renderPage(template, `分类：${categoryName}`, content, '', catSegments, assetPrefix, heading, entryTopLevelSegments);
+
+    const catOutDir = path.join(outDir, siteConfig.entryUrlPrefix, "Category:" + categoryName);
+    await fs.mkdir(catOutDir, { recursive: true });
+    await fs.writeFile(path.join(catOutDir, "index.html"), page, "utf8");
+  }
+
+  // Build Special:Categories page (all categories listing)
+  const allCategoryNames = [...segmentsByCategory.keys()].sort((a, b) => a.localeCompare(b, "zh-CN"));
+  if (allCategoryNames.length > 0) {
+    const catLinks = allCategoryNames
+      .map((name) => {
+        const count = [...segmentsByCategory.get(name)]
+          .map((key) => allEntries.find((e) => e.segments.join("\0") === key))
+          .filter(Boolean)
+          .filter((e) => !isEntryHiddenRecursively(e, allEntries))
+          .length;
+        const href = relativeEntryHref(["Special:Categories"], ["Category:" + name]);
+        return `      <li><a href="${href}">${escapeHtml(name)}</a>（${count}）</li>`;
+      })
+      .join("\n");
+    const specialContent = `<p>本维基中共有 ${allCategoryNames.length} 个分类。</p>\n<ul>\n${catLinks}\n    </ul>`;
+    const specialSegments = ["Special:Categories"];
+    const specialPrefix = '../'.repeat(siteConfig.entryUrlPrefix.split("/").length + 1);
+    const specialPage = renderPage(template, '所有分类', specialContent, '', specialSegments, specialPrefix, '所有分类', entryTopLevelSegments);
+    const specialOutDir = path.join(outDir, siteConfig.entryUrlPrefix, "Special:Categories");
+    await fs.mkdir(specialOutDir, { recursive: true });
+    await fs.writeFile(path.join(specialOutDir, "index.html"), specialPage, "utf8");
+  }
 
   await copyStaticAssets();
   await writeCname();

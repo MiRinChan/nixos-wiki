@@ -194,6 +194,15 @@ function pageUrlForSegments(siteOrigin, segments) {
   return new URL(encodedPath, `${siteOrigin}/`).href;
 }
 
+function pageUrlForFragment(siteOrigin, segments, fragment) {
+  if (segments.length === 0) {
+    return new URL(fragment, `${siteOrigin}/`).href;
+  }
+
+  const pageUrl = pageUrlForSegments(siteOrigin, segments);
+  return `${pageUrl.replace(/\/$/, "")}${fragment}`;
+}
+
 function isAbsoluteOrSpecialUrl(value) {
   return (
     /^[a-z][a-z\d+.-]*:/i.test(value)
@@ -266,6 +275,10 @@ function absolutizeUrl(value, siteOrigin, pageSegments, entryTopLevelSegments = 
 
   if (!trimmed) {
     return value;
+  }
+
+  if (trimmed.startsWith("#")) {
+    return pageUrlForFragment(siteOrigin, pageSegments, unescapeAttributeUrl(trimmed));
   }
 
   try {

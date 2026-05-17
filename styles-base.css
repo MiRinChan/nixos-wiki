@@ -235,6 +235,36 @@ input:focus {
   line-height: 1.6;
 }
 
+.toc-header {
+  display: none;
+}
+
+.toc-collapse-toggle {
+  inline-size: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75em;
+  font: inherit;
+  color: inherit;
+  text-align: start;
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  padding: 0;
+}
+
+.toc-collapse-toggle::after {
+  content: "🡓";
+  flex: none;
+  opacity: 0.65;
+  transition: transform 0.2s ease;
+}
+
+.toc.toc-collapsed .toc-collapse-toggle::after {
+  transform: rotate(-90deg);
+}
+
 .toc ul {
   list-style: none;
   padding-inline-start: 1.2em;
@@ -278,7 +308,7 @@ input:focus {
   transition: transform 0.2s ease;
 }
 
-.toc-toggle:active {
+.toc-toggle:active, .toc-collapse-toggle:active {
   background-color: transparent; 
 }
 
@@ -309,6 +339,18 @@ input:focus {
     border: 1px solid color-mix(in oklch, var(--main), transparent 70%);
     border-radius: 0.5em;
     background: color-mix(in oklch, var(--main), transparent 97%);
+  }
+
+  .toc-header {
+    display: block;
+  }
+
+  .toc-header + ul {
+    margin-block-start: 0.5em;
+  }
+
+  .toc.toc-collapsed > ul {
+    display: none;
   }
 
   @media (prefers-color-scheme: dark) {

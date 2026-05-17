@@ -6,6 +6,14 @@
 (function () {
     const toc = document.getElementById("toc");
     if (!toc) return;
+    const mobileQuery = window.matchMedia("(max-width: 47.99em)");
+    let programmaticScroll = typeof window.wikiIsProgrammaticScrollActive === "function"
+        ? window.wikiIsProgrammaticScrollActive()
+        : false;
+
+    document.addEventListener("wiki:programmatic-scroll", function (event) {
+        programmaticScroll = Boolean(event.detail?.active);
+    });
 
     // Hide TOC on home page by default
     if (window.location.pathname === "/" || window.location.pathname === "/index.html") {
@@ -67,11 +75,15 @@
             a.textContent = node.text;
             a.addEventListener("click", function (e) {
                 e.preventDefault();
-                const target = document.getElementById(node.id);
-                if (target) {
-                    target.scrollIntoView({ behavior: "smooth" });
-                    // Update URL hash without scrolling
-                    history.pushState(null, null, "#" + node.id);
+                e.stopPropagation();
+                const hash = "#" + node.id;
+                history.pushState(null, null, hash);
+
+                if (typeof window.wikiScrollToHash === "function") {
+                    window.wikiScrollToHash(hash);
+                } else {
+                    const target = document.getElementById(node.id);
+                    if (target) target.scrollIntoView({ behavior: "smooth" });
                 }
             });
             li.appendChild(a);
@@ -80,6 +92,7 @@
                 li.classList.add("collapsed"); // 默认折叠
 
                 const toggle = document.createElement("button");
+                toggle.type = "button";
                 toggle.className = "toc-toggle";
                 toggle.setAttribute("aria-label", "展开/折叠");
                 toggle.addEventListener("click", function () {
@@ -95,7 +108,41 @@
         return ul;
     }
 
-    toc.appendChild(renderTree(tree));
+    const header = document.createElement("div");
+    header.className = "toc-header";
+
+    const collapseToggle = document.createElement("button");
+    collapseToggle.type = "button";
+    collapseToggle.className = "toc-collapse-toggle";
+    collapseToggle.textContent = "目录";
+    collapseToggle.setAttribute("aria-label", "展开/折叠目录");
+    header.appendChild(collapseToggle);
+
+    const treeElement = renderTree(tree);
+    treeElement.id = "toc-tree";
+    collapseToggle.setAttribute("aria-controls", treeElement.id);
+
+    toc.appendChild(header);
+    toc.appendChild(treeElement);
+
+    function setTocCollapsed(collapsed) {
+        toc.collapsed = Boolean(collapsed);
+        toc.classList.toggle("toc-collapsed", mobileQuery.matches && toc.collapsed);
+        collapseToggle.setAttribute(
+            "aria-expanded",
+            String(!mobileQuery.matches || !toc.collapsed),
+        );
+    }
+
+    collapseToggle.addEventListener("click", function (e) {
+        e.stopPropagation();
+        setTocCollapsed(!toc.collapsed);
+    });
+
+    setTocCollapsed(mobileQuery.matches);
+    mobileQuery.addEventListener("change", function () {
+        setTocCollapsed(mobileQuery.matches);
+    });
 
     // Build a map from heading id → TOC <a> element
     const linkMap = new Map();
@@ -115,6 +162,18 @@
         }
     }
 
+    function setActiveLink(activeLink) {
+        for (const a of linkMap.values()) {
+            a.classList.remove("active");
+        }
+
+        activeLink.classList.add("active");
+
+        if (!programmaticScroll) {
+            expandAncestors(activeLink);
+        }
+    }
+
     // IntersectionObserver for scroll spy
     const observer = new IntersectionObserver(
         function (entries) {
@@ -127,15 +186,10 @@
             }
 
             if (best && best.intersectionRatio > 0) {
-                // Remove active from all links
-                for (const a of linkMap.values()) {
-                    a.classList.remove("active");
-                }
                 // Set active on the best match
                 const activeLink = linkMap.get(best.target.id);
                 if (activeLink) {
-                    activeLink.classList.add("active");
-                    expandAncestors(activeLink);
+                    setActiveLink(activeLink);
                 }
             }
         },
@@ -154,8 +208,7 @@
         const id = window.location.hash.replace(/^#/, "");
         const link = linkMap.get(id);
         if (link) {
-            expandAncestors(link);
-            link.classList.add("active");
+            setActiveLink(link);
         }
     }
 })();

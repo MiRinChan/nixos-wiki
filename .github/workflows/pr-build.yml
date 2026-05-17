@@ -9,6 +9,15 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-latest
+    env:
+      WIKI_SITE_TITLE: ${{ vars.WIKI_SITE_TITLE }}
+      WIKI_SITE_ORIGIN: ${{ vars.WIKI_SITE_ORIGIN }}
+      WIKI_HTML_LANG: ${{ vars.WIKI_HTML_LANG }}
+      WIKI_ENTRY_URL_PREFIX: ${{ vars.WIKI_ENTRY_URL_PREFIX }}
+      WIKI_EDIT_URL_TEMPLATE: ${{ vars.WIKI_EDIT_URL_TEMPLATE }}
+      WIKI_EDIT_LINK_LABEL: ${{ vars.WIKI_EDIT_LINK_LABEL }}
+      WIKI_FAVICON_PATH: ${{ vars.WIKI_FAVICON_PATH }}
+      WIKI_CNAME: ${{ vars.WIKI_CNAME }}
 
     steps:
       - name: Checkout

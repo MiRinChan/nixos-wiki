@@ -28,12 +28,68 @@ const outDir = path.join(rootDir, "out");
 const markdownTemplateDir = path.join(rootDir, "template");
 const templatePath = path.join(rootDir, "template.html");
 const homePath = path.join(rootDir, "index.md");
-const cnamePath = path.join(rootDir, "CNAME");
-const siteTitle = "NixOS Wiki zh-CN";
-const defaultSiteOrigin = "https://nixoscn.org";
-const entryUrlPrefix = "wiki";
 const maxMarkdownTemplateDepth = 32;
 
+function readEnv(name, fallback = "") {
+  const value = process.env[name];
+
+  if (value === undefined || value.trim() === "") {
+    return fallback;
+  }
+
+  return value.trim();
+}
+
+function readUrlEnv(name, fallback) {
+  const value = readEnv(name, fallback);
+
+  try {
+    return new URL(value).origin;
+  } catch (error) {
+    throw new Error(`${name} must be an absolute URL: ${value}`);
+  }
+}
+
+function readPathPrefixEnv(name, fallback) {
+  const value = readEnv(name, fallback).replace(/^\/+|\/+$/g, "");
+
+  if (!value || value.includes("?") || value.includes("#")) {
+    throw new Error(`${name} must be a non-empty URL path prefix without query or fragment`);
+  }
+
+  const segments = value.split("/");
+  if (segments.some((segment) => !segment || segment === "." || segment === "..")) {
+    throw new Error(`${name} contains an invalid path segment: ${value}`);
+  }
+
+  return value;
+}
+
+function readOptionalPathEnv(name) {
+  const value = readEnv(name);
+
+  if (!value) {
+    return "";
+  }
+
+  if (/[\r\n]/.test(value)) {
+    throw new Error(`${name} must be a single path or URL`);
+  }
+
+  return value;
+}
+
+const siteConfig = {
+  siteTitle: readEnv("WIKI_SITE_TITLE", "NixOS Wiki zh-CN"),
+  siteOrigin: readUrlEnv("WIKI_SITE_ORIGIN", "https://nixoscn.org"),
+  htmlLang: readEnv("WIKI_HTML_LANG", "zh-CN"),
+  entryUrlPrefix: readPathPrefixEnv("WIKI_ENTRY_URL_PREFIX", "wiki"),
+  editUrlTemplate: readOptionalPathEnv("WIKI_EDIT_URL_TEMPLATE") || "https://github.com/MiRinChan/nixos-wiki/edit/main/{encodedPath}",
+  editLinkLabel: readEnv("WIKI_EDIT_LINK_LABEL", "前往 GitHub 编辑此页"),
+  faviconPath: readOptionalPathEnv("WIKI_FAVICON_PATH") || "photo_2026-05-14_19-41-31.jpg",
+  cname: readOptionalPathEnv("WIKI_CNAME") || "nixoscn.org",
+};
+const defaultFooterHtml = "CC-BY-SA 4.0许可证授权，但禁止在所有 MediaWiki 程序中复制和分发。";
 
 marked.use(footnote({ description: "脚注" }));
 marked.use(alert({
@@ -148,47 +204,84 @@ function escapeHtml(value) {
     .replaceAll('"', "&quot;");
 }
 
-const repoBase = "https://github.com/MiRinChan/nixos-wiki/edit/main";
-
-async function readSiteOrigin() {
-  if (process.env.SITE_ORIGIN) {
-    return new URL(process.env.SITE_ORIGIN).origin;
-  }
-
-  try {
-    const cname = await fs.readFile(cnamePath, "utf8");
-    const hostname = cname.split(/\r?\n/).map((line) => line.trim()).find(Boolean);
-
-    if (!hostname) {
-      return defaultSiteOrigin;
-    }
-
-    const origin = hostname.includes("://") ? hostname : `https://${hostname}`;
-    return new URL(origin).origin;
-  } catch {
-    return defaultSiteOrigin;
-  }
+function sourcePathToEncodedPath(sourcePath) {
+  return sourcePath.split("/").map(encodeURIComponent).join("/");
 }
 
-function renderPage(template, title, content, githubEditUrl, siteOrigin, pageSegments = [], assetPrefix = '', heading = escapeHtml(title), entryTopLevelSegments = new Set()) {
+function buildEditUrl(sourcePath) {
+  if (!siteConfig.editUrlTemplate) {
+    return "";
+  }
+
+  return siteConfig.editUrlTemplate
+    .replaceAll("{path}", sourcePath)
+    .replaceAll("{encodedPath}", sourcePathToEncodedPath(sourcePath));
+}
+
+function buildFaviconLink(assetPrefix) {
+  if (!siteConfig.faviconPath) {
+    return "";
+  }
+
+  const href = isAbsoluteOrSpecialUrl(siteConfig.faviconPath) || siteConfig.faviconPath.startsWith("/")
+    ? siteConfig.faviconPath
+    : `${assetPrefix}${siteConfig.faviconPath}`;
+
+  return `<link
+      rel="icon"
+      type="image/x-icon"
+      href="${escapeAttribute(href)}"
+    />`;
+}
+
+function buildFooterHtml(editUrl) {
+  const items = [];
+
+  if (editUrl) {
+    items.push(
+      `<a
+        class="autoInject"
+        href="${escapeAttribute(editUrl)}"
+        target="_blank"
+        rel="noreferrer"
+        >${escapeHtml(siteConfig.editLinkLabel)}</a
+      >`,
+    );
+  }
+
+  items.push(defaultFooterHtml);
+
+  if (items.length === 0) {
+    return "";
+  }
+
+  return `<hr class="autoInject" />
+    <footer class="autoInject">
+      ${items.join("\n      ")}
+    </footer>`;
+}
+
+function renderPage(template, title, content, editUrl, pageSegments = [], assetPrefix = '', heading = escapeHtml(title), entryTopLevelSegments = new Set()) {
   const page = template
+    .replaceAll("{{html_lang}}", escapeAttribute(siteConfig.htmlLang))
     .replaceAll("{{title}}", escapeHtml(title))
-    .replaceAll("{{site_link}}", buildSiteLink(siteOrigin))
+    .replaceAll("{{site_link}}", buildSiteLink())
     .replaceAll("{{heading}}", heading)
+    .replaceAll("{{favicon_link}}", buildFaviconLink(assetPrefix))
     .replaceAll("{{content}}", content)
-    .replaceAll("{{github_edit_url}}", githubEditUrl)
+    .replaceAll("{{footer_html}}", buildFooterHtml(editUrl))
     .replaceAll("{{asset_prefix}}", assetPrefix);
 
-  return absolutizeHtmlUrls(page, siteOrigin, pageSegments, entryTopLevelSegments);
+  return absolutizeHtmlUrls(page, siteConfig.siteOrigin, pageSegments, entryTopLevelSegments);
 }
 
-function buildSiteLink(siteOrigin) {
-  return `<a href="${escapeAttribute(siteOrigin)}">${escapeHtml(siteTitle)}</a>`;
+function buildSiteLink() {
+  return `<a href="${escapeAttribute(siteConfig.siteOrigin)}">${escapeHtml(siteConfig.siteTitle)}</a>`;
 }
 
 function pageUrlForSegments(siteOrigin, segments) {
   const encodedPath = segments.length > 0
-    ? `${entryUrlPrefix}/${segments.map(encodeURIComponent).join("/")}/`
+    ? `${siteConfig.entryUrlPrefix}/${segments.map(encodeURIComponent).join("/")}/`
     : "";
 
   return new URL(encodedPath, `${siteOrigin}/`).href;
@@ -248,14 +341,16 @@ function unescapeAttributeUrl(value) {
 }
 
 function shouldUseEntryUrlPath(url, entryTopLevelSegments) {
-  const [firstPathSegment] = url.pathname.split("/").filter(Boolean);
+  const pathSegments = url.pathname.split("/").filter(Boolean);
+  const prefixSegments = siteConfig.entryUrlPrefix.split("/");
+  const alreadyHasPrefix = prefixSegments.every((segment, index) => pathSegments[index] === segment);
 
-  if (!firstPathSegment || firstPathSegment === entryUrlPrefix) {
+  if (pathSegments.length === 0 || alreadyHasPrefix) {
     return false;
   }
 
   try {
-    return entryTopLevelSegments.has(decodeURIComponent(firstPathSegment));
+    return entryTopLevelSegments.has(decodeURIComponent(pathSegments[0]));
   } catch {
     return false;
   }
@@ -266,7 +361,7 @@ function rewriteEntryUrlPath(url, siteOrigin, entryTopLevelSegments) {
     return url.href;
   }
 
-  url.pathname = `/${entryUrlPrefix}${url.pathname}`;
+  url.pathname = `/${siteConfig.entryUrlPrefix}${url.pathname}`;
   return url.href;
 }
 
@@ -387,11 +482,11 @@ function encodeUrlSegments(segments) {
 function relativeEntryHref(fromSegments, toSegments) {
   if (!toSegments || toSegments.length === 0) return "/";
   const pathSegments = toSegments.map(encodeURIComponent);
-  return `/${entryUrlPrefix}/${pathSegments.join("/")}`;
+  return `/${siteConfig.entryUrlPrefix}/${pathSegments.join("/")}`;
 }
 
 function assetPrefixForEntry(entry) {
-  return "../".repeat(entry.segments.length + 1);
+  return "../".repeat(entry.segments.length + siteConfig.entryUrlPrefix.split("/").length);
 }
 
 function buildEntryHeading(entry) {
@@ -966,11 +1061,11 @@ async function copyStaticAssets() {
 
   await Promise.all(
     dirents
-      .filter((dirent) => dirent.isFile() && (staticExtensions.has(path.extname(dirent.name).toLowerCase()) || dirent.name === "CNAME"))
+      .filter((dirent) => dirent.isFile() && staticExtensions.has(path.extname(dirent.name).toLowerCase()))
       .map((dirent) => fs.copyFile(path.join(rootDir, dirent.name), path.join(outDir, dirent.name))),
   );
 
-  await copyEntryStaticAssets(entriesDir, path.join(outDir, entryUrlPrefix));
+  await copyEntryStaticAssets(entriesDir, path.join(outDir, siteConfig.entryUrlPrefix));
 }
 
 async function copyEntryStaticAssets(sourceDir, targetDir) {
@@ -996,9 +1091,16 @@ async function copyEntryStaticAssets(sourceDir, targetDir) {
   );
 }
 
+async function writeCname() {
+  if (!siteConfig.cname) {
+    return;
+  }
+
+  await fs.writeFile(path.join(outDir, "CNAME"), `${siteConfig.cname}\n`, "utf8");
+}
+
 async function build() {
   const template = await fs.readFile(templatePath, "utf8");
-  const siteOrigin = await readSiteOrigin();
   const entries = await listEntries();
   const entryTopLevelSegments = new Set(entries.map((entry) => entry.segments[0]));
 
@@ -1007,17 +1109,18 @@ async function build() {
 
   for (const entry of walkEntries(entries)) {
     const html = await renderEntry(entry);
-    const githubEditUrl = `${repoBase}/entries/${entry.segments.map(encodeURIComponent).join("/")}/index.md`;
-    const page = renderPage(template, entry.title, html, githubEditUrl, siteOrigin, entry.segments, assetPrefixForEntry(entry), buildEntryHeading(entry), entryTopLevelSegments);
-    const entryOutDir = path.join(outDir, entryUrlPrefix, ...entry.segments);
+    const sourcePath = `entries/${entry.segments.join("/")}/index.md`;
+    const page = renderPage(template, entry.title, html, buildEditUrl(sourcePath), entry.segments, assetPrefixForEntry(entry), buildEntryHeading(entry), entryTopLevelSegments);
+    const entryOutDir = path.join(outDir, siteConfig.entryUrlPrefix, ...entry.segments);
     await fs.mkdir(entryOutDir, { recursive: true });
     await fs.writeFile(path.join(entryOutDir, "index.html"), page, "utf8");
   }
 
-  const home = renderPage(template, siteTitle, await renderHome(entries), `${repoBase}/index.md`, siteOrigin, [], '', escapeHtml(siteTitle), entryTopLevelSegments);
+  const home = renderPage(template, siteConfig.siteTitle, await renderHome(entries), buildEditUrl("index.md"), [], '', escapeHtml(siteConfig.siteTitle), entryTopLevelSegments);
   await fs.writeFile(path.join(outDir, "index.html"), home, "utf8");
 
   await copyStaticAssets();
+  await writeCname();
 }
 
 await build();

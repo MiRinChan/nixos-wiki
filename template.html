@@ -1,14 +1,10 @@
 <!doctype html>
-<html lang="zh-CN">
+<html lang="{{html_lang}}">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>{{title}}</title>
-    <link
-      rel="icon"
-      type="image/x-icon"
-      href="{{asset_prefix}}photo_2026-05-14_19-41-31.jpg"
-    />
+    {{favicon_link}}
     <link rel="stylesheet" href="{{asset_prefix}}styles-base.css" />
     <link rel="stylesheet" href="{{asset_prefix}}styles-code-light.css" />
     <link rel="stylesheet" href="{{asset_prefix}}styles-code-dark.css" />
@@ -30,17 +26,7 @@
     <hr class="autoInject" />
     <nav id="toc" class="toc"></nav>
     {{content}}
-    <hr class="autoInject" />
-    <footer class="autoInject">
-      <a
-        class="autoInject"
-        href="{{github_edit_url}}"
-        target="_blank"
-        rel="noreferrer"
-        >前往 GitHub 编辑此页</a
-      >
-      CC-BY-SA 4.0许可证授权，但禁止在所有 MediaWiki 程序中复制和分发。
-    </footer>
+    {{footer_html}}
     <script>
       (function () {
         const HIGHLIGHT_FILTER = "drop-shadow(0 0 10px #ff8205)";

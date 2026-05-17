@@ -14,7 +14,7 @@
 # with this program; if not, see < https://www.gnu.org/licenses/>.
 
 {
-  description = "Development environment for the personal Chinese NixOS wiki";
+  description = "Development environment for a static Markdown wiki";
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
@@ -41,7 +41,7 @@
           shellHook = ''
             case "$-" in
               *i*)
-                echo "Wiki dev shell"
+                echo "Static Markdown wiki dev shell"
                 echo "  npm ci         # install dependencies"
                 echo "  npm run build  # generate out/"
                 echo "  npm run dev    # auto-build + live reload"
@@ -73,13 +73,13 @@
         default = {
           type = "app";
           program = "${buildWiki}/bin/build-wiki";
-          meta.description = "Build the wiki into out/";
+          meta.description = "Build the static Markdown wiki into out/";
         };
 
         build = {
           type = "app";
           program = "${buildWiki}/bin/build-wiki";
-          meta.description = "Build the wiki into out/";
+          meta.description = "Build the static Markdown wiki into out/";
         };
       }
     );

@@ -1,10 +1,12 @@
 {
-  "name": "nixos-wiki",
+  "name": "static-markdown-wiki",
   "private": true,
   "type": "module",
   "scripts": {
     "build": "node scripts/build.mjs",
-    "dev": "export SITE_ORIGIN=http://127.0.0.1:8080 && npm run build && concurrently \"chokidar 'entries/**/*.md' 'entries/**/FOLD' 'entries/**/HIDE' 'template/**/*.md' 'index.md' 'template.html' 'styles-base.css' 'styles-code-light.css' 'styles-code-dark.css' -c 'npm run build'\" \"live-server out --open\""
+    "dev": "export WIKI_SITE_ORIGIN=http://127.0.0.1:8080 && npm run build && concurrently \"chokidar 'entries/**/*.md' 'entries/**/FOLD' 'entries/**/HIDE' 'template/**/*.md' 'index.md' 'template.html' 'styles-base.css' 'styles-code-light.css' 'styles-code-dark.css' -c 'npm run build'\" \"live-server out --open\"",
+    "init-site": "node scripts/init-site.mjs",
+    "upgrade-program": "node scripts/upgrade-program.mjs"
   },
   "dependencies": {
     "highlight.js": "^11.11.1",

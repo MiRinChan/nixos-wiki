@@ -75,7 +75,7 @@ Nouveau 是英伟达显卡的免费开源驱动程序，提供所有英伟达显
 
 通过配置`hardware.nvidia.powerManagement`的各选项，可以令systemd实验性地管理电源。
 
-#### [`hardware.nvidia.powerManagement.enable`](https://search.nixos.org/options?channel=25.11&query=hardware.nvidia.powerManagement.enable)
+#### [实验性管理](https://search.nixos.org/options?channel=25.11&query=hardware.nvidia.powerManagement.enable)
 
 令英伟达驱动支持睡眠（挂起至内存）和休眠（挂起至磁盘）的电源管理操作，如x86_64平台上的ACPI S3和S4。[^3]
 
@@ -87,7 +87,7 @@ Nouveau 是英伟达显卡的免费开源驱动程序，提供所有英伟达显
 }
 ```
 
-#### [`hardware.nvidia.powerManagement.finegrained`](https://search.nixos.org/options?channel=25.11&query=hardware.nvidia.powerManagement.finegrained)
+#### [在不使用的时候关闭显卡](https://search.nixos.org/options?channel=25.11&query=hardware.nvidia.powerManagement.finegrained)
 
 实验性功能。令英伟达驱动，在不使用的时候关闭显卡。只支持图灵架构及更现代的英伟达显卡。
 

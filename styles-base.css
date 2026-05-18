@@ -385,6 +385,30 @@ input:focus {
   }
 }
 
+/* ===== Hash-target highlight ===== */
+
+@keyframes wiki-highlight {
+  0% {
+    filter: none;
+    animation-timing-function: ease-out;
+  }
+  4.3% {
+    filter: drop-shadow(0 0 10px #ff8205);
+  }
+  71.4% {
+    filter: drop-shadow(0 0 10px #ff8205);
+    animation-timing-function: ease-out;
+  }
+  100% {
+    filter: none;
+  }
+}
+
+/* 0→4.3% = 300ms fade-in, 4.3→71.4% = ~4.7s hold, 71.4→100% = 2s fade-out */
+.wiki-highlight {
+  animation: wiki-highlight 7s forwards;
+}
+
 /* ===== GFM Alerts / Callouts ===== */
 
 .markdown-alert {

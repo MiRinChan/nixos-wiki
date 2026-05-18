@@ -29,25 +29,10 @@
     {{footer_html}}
     <script>
       (function () {
-        const HIGHLIGHT_FILTER = "drop-shadow(0 0 10px #ff8205)";
-        const HOLD_DURATION = 5000;
-        const FADEOUT_DURATION = 2000;
-
         function highlightTarget(target) {
-          target.style.transition = "filter 0.3s ease-out";
-          target.style.filter = HIGHLIGHT_FILTER;
-
-          setTimeout(() => {
-            target.style.transition = `filter ${FADEOUT_DURATION}ms ease-out`;
-            target.style.filter = "";
-          }, HOLD_DURATION);
-
-          setTimeout(
-            () => {
-              target.style.transition = "";
-            },
-            HOLD_DURATION + FADEOUT_DURATION + 100,
-          );
+          target.classList.remove("wiki-highlight");
+          void target.offsetWidth; // force reflow to restart animation if already running
+          target.classList.add("wiki-highlight");
         }
 
         function maxScrollTop() {

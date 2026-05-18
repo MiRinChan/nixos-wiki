@@ -45,7 +45,6 @@
                 id: el.id || "",
                 text: el.textContent.trim(),
                 children: [],
-                el,
             };
 
             // Pop stack until we find a parent with level < current level
@@ -53,8 +52,7 @@
                 stack.pop();
             }
 
-            const parent = stack[stack.length - 1];
-            parent.children.push(node);
+            stack[stack.length - 1].children.push(node);
             stack.push(node);
         }
 
@@ -63,49 +61,29 @@
 
     const tree = buildTree(headingElements);
 
-    // Render tree as nested <ul>/<li>
-    function renderTree(nodes) {
-        const ul = document.createElement("ul");
+    function escapeHtml(str) {
+        return str
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;");
+    }
 
+    // Build the inner HTML for a <ul> level — one innerHTML write per subtree
+    // instead of one createElement+appendChild per node.
+    function buildTreeInner(nodes) {
+        let html = "";
         for (const node of nodes) {
-            const li = document.createElement("li");
-
-            const a = document.createElement("a");
-            a.href = "#" + node.id;
-            a.textContent = node.text;
-            a.addEventListener("click", function (e) {
-                e.preventDefault();
-                e.stopPropagation();
-                const hash = "#" + node.id;
-                history.pushState(null, null, hash);
-
-                if (typeof window.wikiScrollToHash === "function") {
-                    window.wikiScrollToHash(hash);
-                } else {
-                    const target = document.getElementById(node.id);
-                    if (target) target.scrollIntoView({ behavior: "smooth" });
-                }
-            });
-            li.appendChild(a);
-
-            if (node.children.length > 0) {
-                li.classList.add("collapsed"); // 默认折叠
-
-                const toggle = document.createElement("button");
-                toggle.type = "button";
-                toggle.className = "toc-toggle";
-                toggle.setAttribute("aria-label", "展开/折叠");
-                toggle.addEventListener("click", function () {
-                    li.classList.toggle("collapsed");
-                });
-                li.appendChild(toggle);
-                li.appendChild(renderTree(node.children));
+            const hasChildren = node.children.length > 0;
+            html += `<li${hasChildren ? ' class="collapsed"' : ""}>`;
+            html += `<a href="#${escapeHtml(node.id)}">${escapeHtml(node.text)}</a>`;
+            if (hasChildren) {
+                html += `<button type="button" class="toc-toggle" aria-label="展开/折叠"></button>`;
+                html += `<ul>${buildTreeInner(node.children)}</ul>`;
             }
-
-            ul.appendChild(li);
+            html += "</li>";
         }
-
-        return ul;
+        return html;
     }
 
     const header = document.createElement("div");
@@ -118,8 +96,16 @@
     collapseToggle.setAttribute("aria-label", "展开/折叠目录");
     header.appendChild(collapseToggle);
 
-    const treeElement = renderTree(tree);
+    const treeElement = document.createElement("ul");
     treeElement.id = "toc-tree";
+    treeElement.innerHTML = buildTreeInner(tree);
+
+    // One delegated listener for all toggle buttons instead of one per button
+    treeElement.addEventListener("click", function (e) {
+        const toggle = e.target.closest(".toc-toggle");
+        if (toggle) toggle.closest("li").classList.toggle("collapsed");
+    });
+
     collapseToggle.setAttribute("aria-controls", treeElement.id);
 
     toc.appendChild(header);
@@ -155,23 +141,20 @@
     function expandAncestors(el) {
         let current = el;
         while (current && current !== toc) {
-            if (current.tagName === "LI") {
-                current.classList.remove("collapsed");
-            }
+            if (current.tagName === "LI") current.classList.remove("collapsed");
             current = current.parentElement;
         }
     }
 
+    // Track the current link to avoid an O(n) class-removal loop on every scroll
+    let currentActiveLink = null;
+
     function setActiveLink(activeLink) {
-        for (const a of linkMap.values()) {
-            a.classList.remove("active");
-        }
-
+        if (currentActiveLink === activeLink) return;
+        if (currentActiveLink) currentActiveLink.classList.remove("active");
         activeLink.classList.add("active");
-
-        if (!programmaticScroll) {
-            expandAncestors(activeLink);
-        }
+        currentActiveLink = activeLink;
+        if (!programmaticScroll) expandAncestors(activeLink);
     }
 
     // IntersectionObserver for scroll spy
@@ -186,11 +169,8 @@
             }
 
             if (best && best.intersectionRatio > 0) {
-                // Set active on the best match
                 const activeLink = linkMap.get(best.target.id);
-                if (activeLink) {
-                    setActiveLink(activeLink);
-                }
+                if (activeLink) setActiveLink(activeLink);
             }
         },
         {
@@ -207,8 +187,6 @@
     if (window.location.hash) {
         const id = window.location.hash.replace(/^#/, "");
         const link = linkMap.get(id);
-        if (link) {
-            setActiveLink(link);
-        }
+        if (link) setActiveLink(link);
     }
 })();

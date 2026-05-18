@@ -6,8 +6,13 @@
 (function () {
     function highlightTarget(target) {
         target.classList.remove("wiki-highlight");
-        void target.offsetWidth; // force reflow to restart animation if already running
+        void target.offsetWidth; // commit the removal so re-adding restarts the animation
         target.classList.add("wiki-highlight");
+        // Force a second style flush so the animation actually starts on this
+        // frame. Without it Safari defers the animation until the next reflow
+        // (triggered by the next click), so the first click never animated and
+        // later clicks animated the previously clicked target.
+        void target.offsetWidth;
     }
 
     function maxScrollTop() {

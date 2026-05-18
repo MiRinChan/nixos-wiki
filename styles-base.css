@@ -284,15 +284,21 @@ input:focus {
   padding: 0;
 }
 
+/* CSS-drawn down chevron — avoids U+1F853, which Safari cannot render */
 .toc-collapse-toggle::after {
-  content: "🡓";
+  content: "";
   flex: none;
   opacity: 0.65;
+  inline-size: 0.5em;
+  block-size: 0.5em;
+  border-inline-end: 2px solid currentColor;
+  border-block-end: 2px solid currentColor;
+  transform: translateY(-0.15em) rotate(45deg);
   transition: transform 0.2s ease;
 }
 
 .toc.toc-collapsed .toc-collapse-toggle::after {
-  transform: rotate(-90deg);
+  transform: translateY(-0.05em) rotate(-45deg);
 }
 
 .toc ul {
@@ -323,7 +329,9 @@ input:focus {
 
 /* Toggle button */
 .toc-toggle {
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   width: 1.4em;
   height: 1.4em;
   margin-inline-start: 0.2em;
@@ -342,8 +350,14 @@ input:focus {
   background-color: transparent; 
 }
 
+/* CSS-drawn down chevron — avoids U+1F853, which Safari cannot render */
 .toc-toggle::before {
-  content: "🡓";
+  content: "";
+  inline-size: 0.5em;
+  block-size: 0.5em;
+  border-inline-end: 2px solid currentColor;
+  border-block-end: 2px solid currentColor;
+  transform: translateY(-0.15em) rotate(45deg);
 }
 
 .toc li.collapsed > .toc-toggle {

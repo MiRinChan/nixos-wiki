@@ -190,7 +190,6 @@ input {
   padding-inline: 0.5em;
 
   caret-color: #0a84ff;
-  -webkit-rtl-ordering: logical;
 }
 
 button {
@@ -222,6 +221,37 @@ input:focus {
   outline: none;
   border-color: #0a84ff; /* -apple-system-blue */
   box-shadow: 0 0 0 3px rgba(10, 132, 255, 0.25);
+}
+
+@media (prefers-color-scheme: dark) {
+  input {
+    color: #e6edf3;
+    background-color: #161b22;
+    border-color: #30363d;
+  }
+
+  button {
+    color: #e6edf3;
+    border-color: #30363d;
+    --btn-bg: #21262d;
+  }
+}
+
+/* Skip link — visually hidden until focused via keyboard */
+.skip-link {
+  position: absolute;
+  left: 0.5em;
+  top: -3em;
+  z-index: 2000;
+  padding: 0.4em 0.8em;
+  background-color: var(--main);
+  color: #ffffff;
+  border-radius: 6px;
+  transition: top 0.15s ease;
+}
+
+.skip-link:focus {
+  top: 0.5em;
 }
 
 /* ===== TOC (Table of Contents) ===== */

@@ -158,7 +158,7 @@ marked.use({
       }
 
       const header = fileName
-        ? `<div class="code-header"><span class="code-filename">${fileName}</span></div>`
+        ? `<div class="code-header"><span class="code-filename">${escapeHtml(fileName)}</span></div>`
         : '';
 
       // 使用 highlight.js 渲染代码
@@ -175,7 +175,7 @@ marked.use({
 
       return `<div class="code-container">
         ${header}
-        <pre><code class="language-${lang} hljs">${highlighted}</code></pre>
+        <pre><code class="language-${escapeHtml(lang)} hljs">${highlighted}</code></pre>
       </div>`;
     }
   }
@@ -257,10 +257,27 @@ function buildFooterHtml(editUrl) {
     </footer>`;
 }
 
+// Derive a plain-text description from rendered HTML for <meta>/Open Graph:
+// strip tags and entities, collapse whitespace, cap at ~150 chars.
+function extractDescription(html) {
+  const text = String(html)
+    .replace(/<[^>]*>/g, " ")
+    .replace(/&[a-z]+;|&#\d+;/gi, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (!text) return "";
+  return text.length > 150 ? `${text.slice(0, 150).trimEnd()}…` : text;
+}
+
 function renderPage(template, title, content, editUrl, pageSegments = [], assetPrefix = '', heading = escapeHtml(title), entryTopLevelSegments = new Set()) {
+  const description = extractDescription(content) || siteConfig.siteTitle;
+  const canonicalUrl = pageUrlForSegments(siteConfig.siteOrigin, pageSegments);
   const page = template
     .replaceAll("{{html_lang}}", escapeHtml(siteConfig.htmlLang))
     .replaceAll("{{title}}", escapeHtml(title))
+    .replaceAll("{{description}}", escapeHtml(description))
+    .replaceAll("{{canonical_url}}", escapeHtml(canonicalUrl))
+    .replaceAll("{{site_name}}", escapeHtml(siteConfig.siteTitle))
     .replaceAll("{{site_link}}", buildSiteLink())
     .replaceAll("{{heading}}", heading)
     .replaceAll("{{favicon_link}}", buildFaviconLink(assetPrefix))
@@ -303,7 +320,13 @@ function isAbsoluteOrSpecialUrl(value) {
 function parseCategories(markdown) {
   const categories = [];
   const cleanMarkdown = markdown.replace(/^\[\[Category:([^\]]+)\]\]\s*$/gm, (match, name) => {
-    categories.push(name.trim());
+    const cat = name.trim();
+    // Category names become path segments under out/<prefix>/Category:<name>/;
+    // reject separators and traversal so a name can't escape the output dir.
+    if (/[\\/]/.test(cat) || cat.includes("..")) {
+      throw new Error(`非法分类名称（不能包含 / \\ 或 ..）：${cat}`);
+    }
+    categories.push(cat);
     return '';
   });
   return { categories, cleanMarkdown };
@@ -542,6 +565,19 @@ function describeContext(context) {
 
 function templateError(context, message) {
   throw new Error(`${describeContext(context)}: ${message}`);
+}
+
+// Read a build-critical file, turning a missing file into a readable error
+// instead of a bare ENOENT stack trace.
+async function readRequiredFile(filePath, label) {
+  try {
+    return await fs.readFile(filePath, "utf8");
+  } catch (err) {
+    if (err?.code === "ENOENT") {
+      throw new Error(`找不到${label}：${path.relative(rootDir, filePath)}`);
+    }
+    throw err;
+  }
 }
 
 function findMatchingBraces(markdown, start, openLength, context) {
@@ -951,7 +987,7 @@ function makeRenderContext(sourcePath, sourceName, entriesHtml = '') {
 }
 
 async function renderHome(entries) {
-  const markdown = await fs.readFile(homePath, "utf8");
+  const markdown = await readRequiredFile(homePath, "首页内容文件");
   const expandedMarkdown = await expandMarkdownTemplates(markdown,
     makeRenderContext(homePath, "index.md", buildEntryList(entries, [], { includeDescendants: true })));
 
@@ -964,7 +1000,7 @@ async function renderHome(entries) {
 }
 
 async function renderEntry(entry) {
-  const rawMarkdown = entry.hasIndex ? await fs.readFile(entry.sourcePath, "utf8") : "{{entries}}";
+  const rawMarkdown = entry.hasIndex ? await readRequiredFile(entry.sourcePath, "条目内容文件") : "{{entries}}";
   const { categories, cleanMarkdown } = entry.hasIndex ? parseCategories(rawMarkdown) : { categories: [], cleanMarkdown: rawMarkdown };
   entry._categories = categories;
 
@@ -1095,7 +1131,7 @@ async function writeCname() {
 }
 
 async function build() {
-  const template = await fs.readFile(templatePath, "utf8");
+  const template = await readRequiredFile(templatePath, "页面模板");
   const entries = await listEntries();
   const entryTopLevelSegments = new Set(entries.map((entry) => entry.segments[0]));
   const categoriesDir = path.join(rootDir, "categories");
@@ -1196,4 +1232,7 @@ async function build() {
   await writeCname();
 }
 
-await build();
+build().catch((err) => {
+  console.error(`构建失败：${err?.message ?? err}`);
+  process.exitCode = 1;
+});

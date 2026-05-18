@@ -4,12 +4,20 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>{{title}}</title>
+    <meta name="description" content="{{description}}" />
+    <link rel="canonical" href="{{canonical_url}}" />
+    <meta property="og:title" content="{{title}}" />
+    <meta property="og:description" content="{{description}}" />
+    <meta property="og:type" content="article" />
+    <meta property="og:url" content="{{canonical_url}}" />
+    <meta property="og:site_name" content="{{site_name}}" />
     {{favicon_link}}
     <link rel="stylesheet" href="{{asset_prefix}}styles-base.css" />
     <link rel="stylesheet" href="{{asset_prefix}}styles-code-light.css" />
     <link rel="stylesheet" href="{{asset_prefix}}styles-code-dark.css" />
     <script src="{{asset_prefix}}toc.js" defer></script>
     <script src="{{asset_prefix}}nav.js" defer></script>
+    <script src="{{asset_prefix}}hash-scroll.js" defer></script>
     <script
       src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"
       defer
@@ -23,109 +31,12 @@
     </script>
   </head>
   <body>
+    <a class="skip-link" href="#wiki-content">跳到正文</a>
     <div id="wiki-progress" hidden></div>
     <h1 class="autoInject">{{site_link}} / {{heading}}</h1>
     <hr class="autoInject" />
     <nav id="toc" class="toc"></nav>
-    <main id="wiki-content">{{content}}</main>
+    <main id="wiki-content"><article>{{content}}</article></main>
     {{footer_html}}
-    <script>
-      (function () {
-        function highlightTarget(target) {
-          target.classList.remove("wiki-highlight");
-          void target.offsetWidth; // force reflow to restart animation if already running
-          target.classList.add("wiki-highlight");
-        }
-
-        function maxScrollTop() {
-          return Math.max(
-            0,
-            document.documentElement.scrollHeight - window.innerHeight,
-          );
-        }
-
-        function clampScrollTop(top) {
-          return Math.min(Math.max(0, top), maxScrollTop());
-        }
-
-        let scrollEndTimer = null;
-
-        function setProgrammaticScroll(active) {
-          window.__wikiProgrammaticScroll = active;
-          document.dispatchEvent(
-            new CustomEvent("wiki:programmatic-scroll", {
-              detail: { active },
-            }),
-          );
-        }
-
-        function finishProgrammaticScroll() {
-          window.removeEventListener("scroll", resetProgrammaticScrollTimer);
-          setProgrammaticScroll(false);
-        }
-
-        function resetProgrammaticScrollTimer() {
-          window.clearTimeout(scrollEndTimer);
-          scrollEndTimer = window.setTimeout(finishProgrammaticScroll, 180);
-        }
-
-        function scrollToHash(hash) {
-          if (!hash || hash === "#") return;
-          const id = decodeURIComponent(hash.slice(1));
-          const target = document.getElementById(id);
-          if (!target) return;
-
-          const top = clampScrollTop(
-            target.getBoundingClientRect().top +
-              window.scrollY -
-              window.innerHeight * 0.25,
-          );
-
-          setProgrammaticScroll(true);
-          window.addEventListener("scroll", resetProgrammaticScrollTimer, {
-            passive: true,
-          });
-          resetProgrammaticScrollTimer();
-          window.scrollTo({ top, behavior: "smooth" });
-          highlightTarget(target);
-        }
-
-        window.wikiScrollToHash = scrollToHash;
-        window.wikiIsProgrammaticScrollActive = function () {
-          return Boolean(window.__wikiProgrammaticScroll);
-        };
-
-        // Intercept anchor clicks
-        document.addEventListener("click", function (e) {
-          const link = e.target.closest("a");
-          if (!link) return;
-          const raw = link.getAttribute("href");
-          if (!raw) return;
-
-          let hash = null;
-          if (raw.startsWith("#")) {
-            if (raw === "#") return;
-            hash = raw;
-          } else {
-            const hashIdx = raw.indexOf("#");
-            if (hashIdx < 0) return;
-            const tmp = document.createElement("a");
-            tmp.href = raw;
-            if (tmp.pathname !== location.pathname) return;
-            hash = "#" + raw.substring(hashIdx + 1);
-          }
-          if (!hash) return;
-
-          e.preventDefault();
-          history.pushState(null, null, hash);
-          scrollToHash(hash);
-        });
-
-        // Handle initial hash on page load
-        if (location.hash) {
-          scrollToHash(location.hash);
-        }
-      })();
-    </script>
   </body>
 </html>

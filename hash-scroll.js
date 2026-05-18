@@ -4,26 +4,10 @@
 */
 
 (function () {
-    // Keyframes mirror the former CSS @keyframes wiki-highlight.
-    // 0→4.3% = 300ms fade-in, 4.3→71.4% = ~4.7s hold, 71.4→100% = 2s fade-out.
-    const HIGHLIGHT_KEYFRAMES = [
-        { offset: 0, filter: "drop-shadow(0 0 0 transparent)", easing: "ease-out" },
-        { offset: 0.043, filter: "drop-shadow(0 0 10px #ff8205)" },
-        { offset: 0.714, filter: "drop-shadow(0 0 10px #ff8205)", easing: "ease-out" },
-        { offset: 1, filter: "drop-shadow(0 0 0 transparent)" },
-    ];
-
-    let activeHighlight = null;
-
     function highlightTarget(target) {
-        // Drive the pulse via the Web Animations API: element.animate() starts
-        // a fresh animation synchronously, so re-triggering restarts it reliably
-        // in Safari. The former double-rAF approach was deferred by Safari
-        // during the smooth scroll, animating the previously clicked target.
-        if (activeHighlight) activeHighlight.cancel();
-        activeHighlight = target.animate(HIGHLIGHT_KEYFRAMES, {
-            duration: 7000,
-        });
+        target.classList.remove("wiki-highlight");
+        void target.offsetWidth; // force reflow to restart animation if already running
+        target.classList.add("wiki-highlight");
     }
 
     function maxScrollTop() {

@@ -1,12 +1,14 @@
 /* TOC (Table of Contents) component — vanilla JS, no dependencies.
 // Scans rendered Markdown headings, builds a collapsible tree,
 // highlights the active section on scroll, and positions responsively.
+// buildToc() is re-runnable so AJAX navigation can rebuild the TOC.
 */
 
 (function () {
     const toc = document.getElementById("toc");
     if (!toc) return;
     const mobileQuery = window.matchMedia("(max-width: 47.99em)");
+
     let programmaticScroll = typeof window.wikiIsProgrammaticScrollActive === "function"
         ? window.wikiIsProgrammaticScrollActive()
         : false;
@@ -15,23 +17,17 @@
         programmaticScroll = Boolean(event.detail?.active);
     });
 
-    // Hide TOC on home page by default
-    if (window.location.pathname === "/" || window.location.pathname === "/index.html") {
-        toc.hidden = true;
-        return;
+    // Per-build state, refreshed by buildToc()
+    let currentObserver = null;
+    let collapseToggle = null;
+
+    function escapeHtml(str) {
+        return str
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;");
     }
-
-    // Collect all h2–h6 headings in the document body.
-    // The h1 page title is excluded by the selector.
-    const headingElements = document.querySelectorAll("h2, h3, h4, h5, h6");
-
-    if (headingElements.length === 0) {
-        toc.hidden = true;
-        return;
-    }
-
-    // Signal that TOC is present so CSS can adjust layout
-    document.body.classList.add("has-toc");
 
     // Build tree from flat heading list
     function buildTree(headings) {
@@ -59,16 +55,6 @@
         return root.children;
     }
 
-    const tree = buildTree(headingElements);
-
-    function escapeHtml(str) {
-        return str
-            .replace(/&/g, "&amp;")
-            .replace(/</g, "&lt;")
-            .replace(/>/g, "&gt;")
-            .replace(/"/g, "&quot;");
-    }
-
     // Build the inner HTML for a <ul> level — one innerHTML write per subtree
     // instead of one createElement+appendChild per node.
     function buildTreeInner(nodes) {
@@ -86,32 +72,8 @@
         return html;
     }
 
-    const header = document.createElement("div");
-    header.className = "toc-header";
-
-    const collapseToggle = document.createElement("button");
-    collapseToggle.type = "button";
-    collapseToggle.className = "toc-collapse-toggle";
-    collapseToggle.textContent = "目录";
-    collapseToggle.setAttribute("aria-label", "展开/折叠目录");
-    header.appendChild(collapseToggle);
-
-    const treeElement = document.createElement("ul");
-    treeElement.id = "toc-tree";
-    treeElement.innerHTML = buildTreeInner(tree);
-
-    // One delegated listener for all toggle buttons instead of one per button
-    treeElement.addEventListener("click", function (e) {
-        const toggle = e.target.closest(".toc-toggle");
-        if (toggle) toggle.closest("li").classList.toggle("collapsed");
-    });
-
-    collapseToggle.setAttribute("aria-controls", treeElement.id);
-
-    toc.appendChild(header);
-    toc.appendChild(treeElement);
-
     function setTocCollapsed(collapsed) {
+        if (!collapseToggle) return;
         toc.collapsed = Boolean(collapsed);
         toc.classList.toggle("toc-collapsed", mobileQuery.matches && toc.collapsed);
         collapseToggle.setAttribute(
@@ -120,73 +82,137 @@
         );
     }
 
-    collapseToggle.addEventListener("click", function (e) {
-        e.stopPropagation();
-        setTocCollapsed(!toc.collapsed);
-    });
-
-    setTocCollapsed(mobileQuery.matches);
+    // Single persistent listener — references the current build via module state
     mobileQuery.addEventListener("change", function () {
         setTocCollapsed(mobileQuery.matches);
     });
 
-    // Build a map from heading id → TOC <a> element
-    const linkMap = new Map();
-    for (const a of toc.querySelectorAll("a")) {
-        const id = a.getAttribute("href")?.replace(/^#/, "");
-        if (id) linkMap.set(id, a);
-    }
+    function buildToc() {
+        // Tear down the previous build
+        if (currentObserver) {
+            currentObserver.disconnect();
+            currentObserver = null;
+        }
+        collapseToggle = null;
+        toc.innerHTML = "";
+        toc.hidden = false;
+        document.body.classList.remove("has-toc");
 
-    // Expand ancestors of a given element
-    function expandAncestors(el) {
-        let current = el;
-        while (current && current !== toc) {
-            if (current.tagName === "LI") current.classList.remove("collapsed");
-            current = current.parentElement;
+        // Hide TOC on home page by default
+        if (window.location.pathname === "/" || window.location.pathname === "/index.html") {
+            toc.hidden = true;
+            return;
+        }
+
+        // Collect all h2–h6 headings in the page content.
+        // The h1 page title is excluded by the selector.
+        const headingElements = document.querySelectorAll(
+            "#wiki-content h2, #wiki-content h3, #wiki-content h4, #wiki-content h5, #wiki-content h6",
+        );
+
+        if (headingElements.length === 0) {
+            toc.hidden = true;
+            return;
+        }
+
+        // Signal that TOC is present so CSS can adjust layout
+        document.body.classList.add("has-toc");
+
+        const tree = buildTree(headingElements);
+
+        const header = document.createElement("div");
+        header.className = "toc-header";
+
+        collapseToggle = document.createElement("button");
+        collapseToggle.type = "button";
+        collapseToggle.className = "toc-collapse-toggle";
+        collapseToggle.textContent = "目录";
+        collapseToggle.setAttribute("aria-label", "展开/折叠目录");
+        header.appendChild(collapseToggle);
+
+        const treeElement = document.createElement("ul");
+        treeElement.id = "toc-tree";
+        treeElement.innerHTML = buildTreeInner(tree);
+
+        // One delegated listener for all toggle buttons instead of one per button
+        treeElement.addEventListener("click", function (e) {
+            const toggle = e.target.closest(".toc-toggle");
+            if (toggle) toggle.closest("li").classList.toggle("collapsed");
+        });
+
+        collapseToggle.setAttribute("aria-controls", treeElement.id);
+
+        toc.appendChild(header);
+        toc.appendChild(treeElement);
+
+        collapseToggle.addEventListener("click", function (e) {
+            e.stopPropagation();
+            setTocCollapsed(!toc.collapsed);
+        });
+
+        setTocCollapsed(mobileQuery.matches);
+
+        // Build a map from heading id → TOC <a> element
+        const linkMap = new Map();
+        for (const a of toc.querySelectorAll("a")) {
+            const id = a.getAttribute("href")?.replace(/^#/, "");
+            if (id) linkMap.set(id, a);
+        }
+
+        // Expand ancestors of a given element
+        function expandAncestors(el) {
+            let current = el;
+            while (current && current !== toc) {
+                if (current.tagName === "LI") current.classList.remove("collapsed");
+                current = current.parentElement;
+            }
+        }
+
+        // Track the current link to avoid an O(n) class-removal loop on every scroll
+        let currentActiveLink = null;
+
+        function setActiveLink(activeLink) {
+            if (currentActiveLink === activeLink) return;
+            if (currentActiveLink) currentActiveLink.classList.remove("active");
+            activeLink.classList.add("active");
+            currentActiveLink = activeLink;
+            if (!programmaticScroll) expandAncestors(activeLink);
+        }
+
+        // IntersectionObserver for scroll spy
+        currentObserver = new IntersectionObserver(
+            function (entries) {
+                // Find the entry with the highest intersection ratio
+                let best = null;
+                for (const entry of entries) {
+                    if (!best || entry.intersectionRatio > best.intersectionRatio) {
+                        best = entry;
+                    }
+                }
+
+                if (best && best.intersectionRatio > 0) {
+                    const activeLink = linkMap.get(best.target.id);
+                    if (activeLink) setActiveLink(activeLink);
+                }
+            },
+            {
+                rootMargin: "0px 0px -80% 0px",
+                threshold: [0, 0.25, 0.5, 0.75, 1],
+            },
+        );
+
+        for (const el of headingElements) {
+            if (el.id) currentObserver.observe(el);
+        }
+
+        // On load, expand ancestors for hash fragment
+        if (window.location.hash) {
+            const id = window.location.hash.replace(/^#/, "");
+            const link = linkMap.get(id);
+            if (link) setActiveLink(link);
         }
     }
 
-    // Track the current link to avoid an O(n) class-removal loop on every scroll
-    let currentActiveLink = null;
-
-    function setActiveLink(activeLink) {
-        if (currentActiveLink === activeLink) return;
-        if (currentActiveLink) currentActiveLink.classList.remove("active");
-        activeLink.classList.add("active");
-        currentActiveLink = activeLink;
-        if (!programmaticScroll) expandAncestors(activeLink);
-    }
-
-    // IntersectionObserver for scroll spy
-    const observer = new IntersectionObserver(
-        function (entries) {
-            // Find the entry with the highest intersection ratio
-            let best = null;
-            for (const entry of entries) {
-                if (!best || entry.intersectionRatio > best.intersectionRatio) {
-                    best = entry;
-                }
-            }
-
-            if (best && best.intersectionRatio > 0) {
-                const activeLink = linkMap.get(best.target.id);
-                if (activeLink) setActiveLink(activeLink);
-            }
-        },
-        {
-            rootMargin: "0px 0px -80% 0px",
-            threshold: [0, 0.25, 0.5, 0.75, 1],
-        },
-    );
-
-    for (const el of headingElements) {
-        if (el.id) observer.observe(el);
-    }
-
-    // On load, expand ancestors for hash fragment
-    if (window.location.hash) {
-        const id = window.location.hash.replace(/^#/, "");
-        const link = linkMap.get(id);
-        if (link) setActiveLink(link);
-    }
+    window.wikiRebuildToc = buildToc;
+    buildToc();
 })();

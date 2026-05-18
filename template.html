@@ -9,6 +9,7 @@
     <link rel="stylesheet" href="{{asset_prefix}}styles-code-light.css" />
     <link rel="stylesheet" href="{{asset_prefix}}styles-code-dark.css" />
     <script src="{{asset_prefix}}toc.js" defer></script>
+    <script src="{{asset_prefix}}nav.js" defer></script>
     <script
       src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"
       defer
@@ -22,10 +23,11 @@
     </script>
   </head>
   <body>
+    <div id="wiki-progress" hidden></div>
     <h1 class="autoInject">{{site_link}} / {{heading}}</h1>
     <hr class="autoInject" />
     <nav id="toc" class="toc"></nav>
-    {{content}}
+    <main id="wiki-content">{{content}}</main>
     {{footer_html}}
     <script>
       (function () {

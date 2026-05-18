@@ -409,6 +409,28 @@ input:focus {
   animation: wiki-highlight 7s forwards;
 }
 
+/* ===== AJAX navigation ===== */
+
+#wiki-progress {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 1000;
+  width: 0;
+  height: 3px;
+  background: var(--main);
+  box-shadow: 0 0 8px var(--main);
+  pointer-events: none;
+}
+
+#wiki-content {
+  transition: opacity 0.15s ease;
+}
+
+#wiki-content.wiki-fading {
+  opacity: 0;
+}
+
 /* ===== GFM Alerts / Callouts ===== */
 
 .markdown-alert {

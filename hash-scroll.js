@@ -6,8 +6,13 @@
 (function () {
     function highlightTarget(target) {
         target.classList.remove("wiki-highlight");
-        void target.offsetWidth; // force reflow to restart animation if already running
-        target.classList.add("wiki-highlight");
+        // Double-rAF ensures Safari commits the class removal before re-adding,
+        // reliably restarting the animation (void offsetWidth is not enough in Safari).
+        requestAnimationFrame(function () {
+            requestAnimationFrame(function () {
+                target.classList.add("wiki-highlight");
+            });
+        });
     }
 
     function maxScrollTop() {

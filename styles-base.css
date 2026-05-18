@@ -433,7 +433,8 @@ input:focus {
 
 @keyframes wiki-highlight {
   0% {
-    filter: none;
+    /* Use explicit drop-shadow(0) instead of filter:none so Safari can interpolate */
+    filter: drop-shadow(0 0 0 transparent);
     animation-timing-function: ease-out;
   }
   4.3% {
@@ -444,7 +445,7 @@ input:focus {
     animation-timing-function: ease-out;
   }
   100% {
-    filter: none;
+    filter: drop-shadow(0 0 0 transparent);
   }
 }
 

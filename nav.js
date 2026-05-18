@@ -97,6 +97,19 @@
 
         document.title = doc.title;
 
+        // Keep meta tags in sync so Reader View (Firefox, Safari) picks up
+        // the new page's title/description/URL rather than the original page's.
+        function syncMeta(selector, attr, newDoc) {
+            const src = newDoc.querySelector(selector);
+            const dst = document.querySelector(selector);
+            if (src && dst) dst.setAttribute(attr, src.getAttribute(attr));
+        }
+        syncMeta('meta[property="og:title"]',       "content", doc);
+        syncMeta('meta[property="og:description"]', "content", doc);
+        syncMeta('meta[property="og:url"]',         "content", doc);
+        syncMeta('meta[name="description"]',        "content", doc);
+        syncMeta('link[rel="canonical"]',           "href",    doc);
+
         if (push) history.pushState({}, "", url);
         currentPath = new URL(url).pathname;
 

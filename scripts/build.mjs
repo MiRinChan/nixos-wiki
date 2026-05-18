@@ -230,7 +230,7 @@ function buildFaviconLink(assetPrefix) {
   return `<link
       rel="icon"
       type="image/x-icon"
-      href="${escapeAttribute(href)}"
+      href="${escapeHtml(href)}"
     />`;
 }
 
@@ -241,7 +241,7 @@ function buildFooterHtml(editUrl) {
     items.push(
       `<a
         class="autoInject"
-        href="${escapeAttribute(editUrl)}"
+        href="${escapeHtml(editUrl)}"
         target="_blank"
         rel="noreferrer"
         >${escapeHtml(siteConfig.editLinkLabel)}</a
@@ -251,10 +251,6 @@ function buildFooterHtml(editUrl) {
 
   items.push(defaultFooterHtml);
 
-  if (items.length === 0) {
-    return "";
-  }
-
   return `<hr class="autoInject" />
     <footer class="autoInject">
       ${items.join("\n      ")}
@@ -263,7 +259,7 @@ function buildFooterHtml(editUrl) {
 
 function renderPage(template, title, content, editUrl, pageSegments = [], assetPrefix = '', heading = escapeHtml(title), entryTopLevelSegments = new Set()) {
   const page = template
-    .replaceAll("{{html_lang}}", escapeAttribute(siteConfig.htmlLang))
+    .replaceAll("{{html_lang}}", escapeHtml(siteConfig.htmlLang))
     .replaceAll("{{title}}", escapeHtml(title))
     .replaceAll("{{site_link}}", buildSiteLink())
     .replaceAll("{{heading}}", heading)
@@ -276,7 +272,7 @@ function renderPage(template, title, content, editUrl, pageSegments = [], assetP
 }
 
 function buildSiteLink() {
-  return `<a href="${escapeAttribute(siteConfig.siteOrigin)}">${escapeHtml(siteConfig.siteTitle)}</a>`;
+  return `<a href="${escapeHtml(siteConfig.siteOrigin)}">${escapeHtml(siteConfig.siteTitle)}</a>`;
 }
 
 function pageUrlForSegments(siteOrigin, segments) {
@@ -303,13 +299,6 @@ function isAbsoluteOrSpecialUrl(value) {
   );
 }
 
-function escapeAttribute(value) {
-  return String(value)
-    .replaceAll("&", "&amp;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;");
-}
 
 function parseCategories(markdown) {
   const categories = [];
@@ -423,7 +412,7 @@ function absolutizeHtmlUrls(html, siteOrigin, pageSegments, entryTopLevelSegment
   const withAttributes = html.replace(
     /\b(href|src|poster|action)\s*=\s*(["'])(.*?)\2/gis,
     (_match, attribute, quote, value) => {
-      const absolute = escapeAttribute(absolutizeUrl(value, siteOrigin, pageSegments, entryTopLevelSegments));
+      const absolute = escapeHtml(absolutizeUrl(value, siteOrigin, pageSegments, entryTopLevelSegments));
       return `${attribute}=${quote}${absolute}${quote}`;
     },
   );
@@ -431,7 +420,7 @@ function absolutizeHtmlUrls(html, siteOrigin, pageSegments, entryTopLevelSegment
   const withSrcsets = withAttributes.replace(
     /\bsrcset\s*=\s*(["'])(.*?)\1/gis,
     (_match, quote, value) => {
-      const absolute = escapeAttribute(absolutizeSrcset(value, siteOrigin, pageSegments, entryTopLevelSegments));
+      const absolute = escapeHtml(absolutizeSrcset(value, siteOrigin, pageSegments, entryTopLevelSegments));
       return `srcset=${quote}${absolute}${quote}`;
     },
   );
@@ -484,9 +473,6 @@ async function listEntryChildren(parentDir, parentSegments) {
   return result.sort((left, right) => left.title.localeCompare(right.title, "zh-CN"));
 }
 
-function encodeUrlSegments(segments) {
-  return segments.map((segment) => encodeURIComponent(segment));
-}
 
 function relativeEntryHref(fromSegments, toSegments) {
   if (!toSegments || toSegments.length === 0) return "/";
@@ -496,6 +482,10 @@ function relativeEntryHref(fromSegments, toSegments) {
 
 function assetPrefixForEntry(entry) {
   return "../".repeat(entry.segments.length + siteConfig.entryUrlPrefix.split("/").length);
+}
+
+function assetPrefixForSpecialPage() {
+  return '../'.repeat(siteConfig.entryUrlPrefix.split("/").length + 1);
 }
 
 function buildEntryHeading(entry) {
@@ -720,70 +710,9 @@ function parseTemplateParameter(inner, context) {
   };
 }
 
-const htmlBlockTags = new Set([
-  "address",
-  "article",
-  "aside",
-  "base",
-  "basefont",
-  "blockquote",
-  "body",
-  "caption",
-  "center",
-  "col",
-  "colgroup",
-  "dd",
-  "details",
-  "dialog",
-  "dir",
-  "div",
-  "dl",
-  "dt",
-  "fieldset",
-  "figcaption",
-  "figure",
-  "footer",
-  "form",
-  "frame",
-  "frameset",
-  "h1",
-  "h2",
-  "h3",
-  "h4",
-  "h5",
-  "h6",
-  "head",
-  "header",
-  "hr",
-  "html",
-  "iframe",
-  "legend",
-  "li",
-  "link",
-  "main",
-  "menu",
-  "menuitem",
-  "nav",
-  "noframes",
-  "ol",
-  "optgroup",
-  "option",
-  "p",
-  "param",
-  "search",
-  "section",
-  "summary",
-  "table",
-  "tbody",
-  "td",
-  "tfoot",
-  "th",
-  "thead",
-  "title",
-  "tr",
-  "track",
-  "ul",
-]);
+const htmlBlockTags = new Set(
+  "address article aside base basefont blockquote body caption center col colgroup dd details dialog dir div dl dt fieldset figcaption figure footer form frame frameset h1 h2 h3 h4 h5 h6 head header hr html iframe legend li link main menu menuitem nav noframes ol optgroup option p param search section summary table tbody td tfoot th thead title tr track ul".split(" ")
+);
 
 function isIndentedCodeLine(line) {
   return /^(?:    |\t)/.test(line);
@@ -951,22 +880,10 @@ async function expandBraceMarkdownTemplates(markdown, context, singleExpansion =
 
     cursor = close.index + close.closeLength;
 
-    if (singleExpansion) {
-      return {
-        value: result,
-        length: cursor,
-      };
-    }
+    if (singleExpansion) break;
   }
 
-  if (singleExpansion) {
-    return {
-      value: result,
-      length: cursor,
-    };
-  }
-
-  return result;
+  return singleExpansion ? { value: result, length: cursor } : result;
 }
 
 async function expandTemplateParameter(inner, context) {
@@ -1029,15 +946,14 @@ async function expandTemplateCall(inner, context) {
   });
 }
 
+function makeRenderContext(sourcePath, sourceName, entriesHtml = '') {
+  return { sourcePath, sourceName, entriesHtml, depth: 0, callStack: [] };
+}
+
 async function renderHome(entries) {
   const markdown = await fs.readFile(homePath, "utf8");
-  const expandedMarkdown = await expandMarkdownTemplates(markdown, {
-    sourcePath: homePath,
-    sourceName: "index.md",
-    entriesHtml: buildEntryList(entries, [], { includeDescendants: true }),
-    depth: 0,
-    callStack: [],
-  });
+  const expandedMarkdown = await expandMarkdownTemplates(markdown,
+    makeRenderContext(homePath, "index.md", buildEntryList(entries, [], { includeDescendants: true })));
 
   const html = marked.parse(expandedMarkdown);
   checkDuplicateHeadings(html, {
@@ -1052,13 +968,11 @@ async function renderEntry(entry) {
   const { categories, cleanMarkdown } = entry.hasIndex ? parseCategories(rawMarkdown) : { categories: [], cleanMarkdown: rawMarkdown };
   entry._categories = categories;
 
-  const expandedMarkdown = await expandMarkdownTemplates(cleanMarkdown, {
-    sourcePath: entry.sourcePath,
-    sourceName: entry.hasIndex ? path.relative(rootDir, entry.sourcePath) : `entries/${entry.segments.join("/")}/index.md`,
-    entriesHtml: buildEntryList(entry.children, entry.segments),
-    depth: 0,
-    callStack: [],
-  });
+  const sourceName = entry.hasIndex
+    ? path.relative(rootDir, entry.sourcePath)
+    : `entries/${entry.segments.join("/")}/index.md`;
+  const expandedMarkdown = await expandMarkdownTemplates(cleanMarkdown,
+    makeRenderContext(entry.sourcePath, sourceName, buildEntryList(entry.children, entry.segments)));
 
   let html = marked.parse(expandedMarkdown);
 
@@ -1070,11 +984,15 @@ async function renderEntry(entry) {
     html += `\n<div class="category-links">\n<hr>\n<span>分类：${links}</span>\n</div>`;
   }
 
-  checkDuplicateHeadings(html, {
-    sourcePath: entry.sourcePath,
-    sourceName: entry.hasIndex ? path.relative(rootDir, entry.sourcePath) : `entries/${entry.segments.join("/")}/index.md`,
-  });
+  checkDuplicateHeadings(html, { sourcePath: entry.sourcePath, sourceName });
   return html;
+}
+
+function resolveVisibleEntries(keys, flatEntries) {
+  return [...keys]
+    .map((key) => flatEntries.find((e) => e.segments.join("\0") === key))
+    .filter(Boolean)
+    .filter((e) => !isEntryHiddenRecursively(e, flatEntries));
 }
 
 function isEntryHiddenRecursively(entry, allEntries) {
@@ -1100,10 +1018,7 @@ function buildCategoryEntryList(segmentsByCategory, childCategoriesByParent, all
 
   // Entry listing
   if (entrySegments) {
-    const visible = [...entrySegments]
-      .map((key) => flatEntries.find((e) => e.segments.join("\0") === key))
-      .filter(Boolean)
-      .filter((entry) => !isEntryHiddenRecursively(entry, flatEntries));
+    const visible = resolveVisibleEntries(entrySegments, flatEntries);
 
     if (visible.length > 0) {
       const links = visible
@@ -1215,12 +1130,14 @@ async function build() {
   // Collect parent-child relationships from category description files
   // Also ensure parent categories (which may have no direct entries) get entries
   const childCategoriesByParent = new Map();
+  const catMarkdownCache = new Map(); // catIndexPath → { categories, cleanMarkdown }
   for (const [categoryName] of segmentsByCategory) {
     const catIndexPath = path.join(categoriesDir, categoryName, "index.md");
     if (await pathExists(catIndexPath)) {
       const catMarkdown = await fs.readFile(catIndexPath, "utf8");
-      const { categories: parentCats } = parseCategories(catMarkdown);
-      for (const parentCat of parentCats) {
+      const parsed = parseCategories(catMarkdown);
+      catMarkdownCache.set(catIndexPath, parsed);
+      for (const parentCat of parsed.categories) {
         if (!childCategoriesByParent.has(parentCat)) {
           childCategoriesByParent.set(parentCat, new Set());
         }
@@ -1236,19 +1153,12 @@ async function build() {
   // Build category listing pages
   const allEntries = [...walkEntries(entries)];
   for (const [categoryName] of segmentsByCategory) {
-    // Check for optional category description markdown
     const catIndexPath = path.join(categoriesDir, categoryName, "index.md");
     let introHtml = '';
-    if (await pathExists(catIndexPath)) {
-      const catMarkdown = await fs.readFile(catIndexPath, "utf8");
-      const { cleanMarkdown } = parseCategories(catMarkdown);
-      const expanded = await expandMarkdownTemplates(cleanMarkdown, {
-        sourcePath: catIndexPath,
-        sourceName: `categories/${categoryName}/index.md`,
-        entriesHtml: '',
-        depth: 0,
-        callStack: [],
-      });
+    if (catMarkdownCache.has(catIndexPath)) {
+      const { cleanMarkdown } = catMarkdownCache.get(catIndexPath);
+      const expanded = await expandMarkdownTemplates(cleanMarkdown,
+        makeRenderContext(catIndexPath, `categories/${categoryName}/index.md`));
       introHtml = marked.parse(expanded);
     }
 
@@ -1257,8 +1167,7 @@ async function build() {
 
     const heading = `分类：${escapeHtml(categoryName)}`;
     const catSegments = ["Category:" + categoryName];
-    const assetPrefix = '../'.repeat(siteConfig.entryUrlPrefix.split("/").length + 1);
-    const page = renderPage(template, `分类：${categoryName}`, content, '', catSegments, assetPrefix, heading, entryTopLevelSegments);
+    const page = renderPage(template, `分类：${categoryName}`, content, '', catSegments, assetPrefixForSpecialPage(), heading, entryTopLevelSegments);
 
     const catOutDir = path.join(outDir, siteConfig.entryUrlPrefix, "Category:" + categoryName);
     await fs.mkdir(catOutDir, { recursive: true });
@@ -1270,19 +1179,14 @@ async function build() {
   if (allCategoryNames.length > 0) {
     const catLinks = allCategoryNames
       .map((name) => {
-        const count = [...segmentsByCategory.get(name)]
-          .map((key) => allEntries.find((e) => e.segments.join("\0") === key))
-          .filter(Boolean)
-          .filter((e) => !isEntryHiddenRecursively(e, allEntries))
-          .length;
+        const count = resolveVisibleEntries(segmentsByCategory.get(name), allEntries).length;
         const href = relativeEntryHref(["Special:Categories"], ["Category:" + name]);
         return `      <li><a href="${href}">${escapeHtml(name)}</a>（${count}）</li>`;
       })
       .join("\n");
     const specialContent = `<p>本维基中共有 ${allCategoryNames.length} 个分类。</p>\n<ul>\n${catLinks}\n    </ul>`;
     const specialSegments = ["Special:Categories"];
-    const specialPrefix = '../'.repeat(siteConfig.entryUrlPrefix.split("/").length + 1);
-    const specialPage = renderPage(template, '所有分类', specialContent, '', specialSegments, specialPrefix, '所有分类', entryTopLevelSegments);
+    const specialPage = renderPage(template, '所有分类', specialContent, '', specialSegments, assetPrefixForSpecialPage(), '所有分类', entryTopLevelSegments);
     const specialOutDir = path.join(outDir, siteConfig.entryUrlPrefix, "Special:Categories");
     await fs.mkdir(specialOutDir, { recursive: true });
     await fs.writeFile(path.join(specialOutDir, "index.html"), specialPage, "utf8");

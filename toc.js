@@ -179,38 +179,46 @@
             if (!programmaticScroll) expandAncestors(activeLink);
         }
 
-        // IntersectionObserver for scroll spy
-        currentObserver = new IntersectionObserver(
-            function (entries) {
-                // Find the entry with the highest intersection ratio
-                let best = null;
-                for (const entry of entries) {
-                    if (!best || entry.intersectionRatio > best.intersectionRatio) {
-                        best = entry;
-                    }
-                }
-
-                if (best && best.intersectionRatio > 0) {
-                    const activeLink = linkMap.get(best.target.id);
-                    if (activeLink) setActiveLink(activeLink);
-                }
-            },
-            {
-                rootMargin: "0px 0px -80% 0px",
-                threshold: [0, 0.25, 0.5, 0.75, 1],
-            },
-        );
-
-        for (const el of headingElements) {
-            if (el.id) currentObserver.observe(el);
+        // Scroll-spy: highlight the last heading at or above the 25% line,
+        // matching the quarter-screen offset used in anchor-highlight.js.
+        function findActiveHeadingEl() {
+            const threshold = window.innerHeight * 0.25 + 4;
+            let active = null;
+            for (const el of headingElements) {
+                if (el.getBoundingClientRect().top <= threshold) active = el;
+            }
+            return active;
         }
 
-        // On load, expand ancestors for hash fragment
-        if (window.location.hash) {
-            const id = window.location.hash.replace(/^#/, "");
-            const link = linkMap.get(id);
+        function updateHighlight() {
+            const el = findActiveHeadingEl();
+            if (!el) return;
+            const link = linkMap.get(el.id);
             if (link) setActiveLink(link);
         }
+
+        let scrollRAF = null;
+        function onScroll() {
+            if (programmaticScroll) return;
+            if (scrollRAF) return;
+            scrollRAF = requestAnimationFrame(function () { scrollRAF = null; updateHighlight(); });
+        }
+
+        function onScrollEnd(e) {
+            if (!e.detail?.active) requestAnimationFrame(updateHighlight);
+        }
+
+        currentObserver = {
+            disconnect: function () {
+                window.removeEventListener("scroll", onScroll);
+                document.removeEventListener("wiki:programmatic-scroll", onScrollEnd);
+            }
+        };
+
+        window.addEventListener("scroll", onScroll, { passive: true });
+        document.addEventListener("wiki:programmatic-scroll", onScrollEnd);
+
+        updateHighlight();
     }
 
     window.wikiRebuildToc = buildToc;

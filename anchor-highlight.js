@@ -6,6 +6,7 @@
   document.body.appendChild(hlCanvas);
   const hlCtx = hlCanvas.getContext("2d");
   const darkMQ = window.matchMedia("(prefers-color-scheme: dark)");
+  const reduceMotionMQ = window.matchMedia("(prefers-reduced-motion: reduce)");
   function updateBlendMode() {
     hlCanvas.style.mixBlendMode = darkMQ.matches ? "screen" : "multiply";
   }
@@ -22,6 +23,9 @@
   let hlRAF = null;
 
   function highlightTarget(target) {
+    // Respect users who prefer reduced motion: skip the animated highlight.
+    // The browser still scrolls the anchor into view.
+    if (reduceMotionMQ.matches) return;
     hlTarget = target;
     if (hlRAF) cancelAnimationFrame(hlRAF);
     const duration = 7000;

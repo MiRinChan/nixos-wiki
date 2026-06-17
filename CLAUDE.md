@@ -108,3 +108,24 @@ Production values are set as GitHub Repository Variables. Never write a `CNAME` 
 ### Contributor agreement
 
 PRs must include `这是我的翻译` or `这是我的著作` in the PR description to sign the contributor agreement (CC-BY-SA 4.0 with the "Part CC" MediaWiki restriction).
+
+### Security model (read before "fixing" XSS)
+
+Content is **trusted**: every entry/category/template arrives through a reviewed
+PR that also signs the contributor agreement. The pipeline is built around that
+assumption, so the following are **intentional**, not bugs:
+
+- **`marked` runs without HTML sanitization** (its default). Raw HTML in Markdown
+  passes through verbatim — this is what lets entries embed rich HTML/SVG. Do
+  **not** add a sanitizer (e.g. DOMPurify) or `marked`'s deprecated `sanitize`
+  option; it would strip legitimate markup from existing entries.
+- **`nav.js` swaps page sections with `innerHTML`** from a **same-origin** fetch
+  of the site's own already-published pages — the same trust boundary as the
+  page already loaded, and `innerHTML` does not execute injected `<script>`.
+- **Heading ids** are derived from already-rendered inline HTML; the explicit-id
+  regex captures `[^"]*`, so an id can't break out of the `id="…"` attribute.
+- **CI uses `pull_request`, never `pull_request_target`**, so untrusted fork code
+  runs without repository secrets (`pr-build.yml` is read-only).
+
+Genuine hardening that *is* applied: the third-party Mermaid bundle is loaded
+from a pinned CDN version with Subresource Integrity (`template.html`).

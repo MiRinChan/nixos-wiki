@@ -537,6 +537,25 @@ function* walkEntries(entries) {
   }
 }
 
+// Namespace prefix for category pages (out/<prefix>/Category:<name>/).
+const CATEGORY_NS = "Category:";
+
+// Entry segments addressing a category page, e.g. "数据库" → ["Category:数据库"].
+function categorySegments(name) {
+  return [CATEGORY_NS + name];
+}
+
+// One list item, indented to match the surrounding <ul>. `after` is appended
+// inside the <li> right after the anchor (a nested child list, a count, …).
+function renderLinkItem(href, label, after = "") {
+  return `      <li><a href="${href}">${label}</a>${after}</li>`;
+}
+
+// Wrap pre-rendered <li> strings in the project's <ul> block layout.
+function renderLinkList(items) {
+  return `<ul>\n${items.join("\n")}\n    </ul>`;
+}
+
 function buildEntryList(entries, currentSegments = [], options = {}) {
   const visibleEntries = entries.filter((entry) => !entry.isHidden);
 
@@ -544,19 +563,17 @@ function buildEntryList(entries, currentSegments = [], options = {}) {
     return "<p>暂无词条。</p>";
   }
 
-  const links = visibleEntries
-    .map((entry) => {
-      const href = relativeEntryHref(currentSegments, entry.segments);
-      const title = `${escapeHtml(entry.title)}${entry.isFolded ? "…" : ""}`;
-      const children = options.includeDescendants && !entry.isFolded && entry.children.length > 0
-        ? `\n${buildEntryList(entry.children, currentSegments, options)}`
-        : "";
+  const items = visibleEntries.map((entry) => {
+    const href = relativeEntryHref(currentSegments, entry.segments);
+    const title = `${escapeHtml(entry.title)}${entry.isFolded ? "…" : ""}`;
+    const children = options.includeDescendants && !entry.isFolded && entry.children.length > 0
+      ? `\n${buildEntryList(entry.children, currentSegments, options)}`
+      : "";
 
-      return `      <li><a href="${href}">${title}</a>${children}</li>`;
-    })
-    .join("\n");
+    return renderLinkItem(href, title, children);
+  });
 
-  return `<ul>\n${links}\n    </ul>`;
+  return renderLinkList(items);
 }
 
 function describeContext(context) {
@@ -580,42 +597,38 @@ async function readRequiredFile(filePath, label) {
   }
 }
 
+// A {{ }} / {{{ }}} brace token at `index`, encoded as a signed length:
+//   +3 / +2  → an opening {{{ or {{
+//   -3 / -2  → a closing }}} or }} that matches the current open (`stackTop`)
+//    0       → no brace token here
+// Check order matches the longer delimiter first ({{{ before {{, }}} before }}).
+function braceTokenAt(value, index, stackTop) {
+  if (value.startsWith("{{{", index)) return 3;
+  if (value.startsWith("{{", index)) return 2;
+  if (value.startsWith("}}}", index) && stackTop === 3) return -3;
+  if (value.startsWith("}}", index) && stackTop === 2) return -2;
+  return 0;
+}
+
 function findMatchingBraces(markdown, start, openLength, context) {
   const stack = [openLength];
   let index = start + openLength;
 
   while (index < markdown.length) {
-    if (markdown.startsWith("{{{", index)) {
-      stack.push(3);
-      index += 3;
-      continue;
-    }
-
-    if (markdown.startsWith("{{", index)) {
-      stack.push(2);
-      index += 2;
-      continue;
-    }
-
-    if (markdown.startsWith("}}}", index) && stack.at(-1) === 3) {
+    const token = braceTokenAt(markdown, index, stack.at(-1));
+    if (token > 0) {
+      stack.push(token);
+      index += token;
+    } else if (token < 0) {
       stack.pop();
+      const closeLength = -token;
       if (stack.length === 0) {
-        return { index, closeLength: 3 };
+        return { index, closeLength };
       }
-      index += 3;
-      continue;
+      index += closeLength;
+    } else {
+      index += 1;
     }
-
-    if (markdown.startsWith("}}", index) && stack.at(-1) === 2) {
-      stack.pop();
-      if (stack.length === 0) {
-        return { index, closeLength: 2 };
-      }
-      index += 2;
-      continue;
-    }
-
-    index += 1;
   }
 
   templateError(context, `未闭合的模板语法：${markdown.slice(start, start + 40)}`);
@@ -626,35 +639,18 @@ function findTopLevelDelimiter(value, delimiter, context) {
   let index = 0;
 
   while (index < value.length) {
-    if (value.startsWith("{{{", index)) {
-      stack.push(3);
-      index += 3;
-      continue;
-    }
-
-    if (value.startsWith("{{", index)) {
-      stack.push(2);
-      index += 2;
-      continue;
-    }
-
-    if (value.startsWith("}}}", index) && stack.at(-1) === 3) {
+    const token = braceTokenAt(value, index, stack.at(-1));
+    if (token > 0) {
+      stack.push(token);
+      index += token;
+    } else if (token < 0) {
       stack.pop();
-      index += 3;
-      continue;
-    }
-
-    if (value.startsWith("}}", index) && stack.at(-1) === 2) {
-      stack.pop();
-      index += 2;
-      continue;
-    }
-
-    if (value[index] === delimiter && stack.length === 0) {
+      index += -token;
+    } else if (value[index] === delimiter && stack.length === 0) {
       return index;
+    } else {
+      index += 1;
     }
-
-    index += 1;
   }
 
   if (stack.length > 0) {
@@ -1014,7 +1010,7 @@ async function renderEntry(entry) {
 
   if (categories.length > 0) {
     const links = categories.map((cat) => {
-      const href = relativeEntryHref(entry.segments, ["Category:" + cat]);
+      const href = relativeEntryHref(entry.segments, categorySegments(cat));
       return `<a href="${href}">${escapeHtml(cat)}</a>`;
     }).join("，");
     html += `\n<div class="category-links">\n<hr>\n<span>分类：${links}</span>\n</div>`;
@@ -1057,27 +1053,24 @@ function buildCategoryEntryList(segmentsByCategory, childCategoriesByParent, all
     const visible = resolveVisibleEntries(entrySegments, flatEntries);
 
     if (visible.length > 0) {
-      const links = visible
-        .map((entry) => {
-          const href = relativeEntryHref(["Category:" + categoryName], entry.segments);
-          const title = `${escapeHtml(entry.title)}${entry.isFolded ? "…" : ""}`;
-          return `      <li><a href="${href}">${title}</a></li>`;
-        })
-        .join("\n");
-      parts.push(`<ul>\n${links}\n    </ul>`);
+      const items = visible.map((entry) => {
+        const href = relativeEntryHref(categorySegments(categoryName), entry.segments);
+        const title = `${escapeHtml(entry.title)}${entry.isFolded ? "…" : ""}`;
+        return renderLinkItem(href, title);
+      });
+      parts.push(renderLinkList(items));
     }
   }
 
   // Subcategory listing
   if (children && children.size > 0) {
-    const childLinks = [...children]
+    const childItems = [...children]
       .sort((a, b) => a.localeCompare(b, "zh-CN"))
       .map((childName) => {
-        const href = relativeEntryHref(["Category:" + categoryName], ["Category:" + childName]);
-        return `      <li><a href="${href}">${escapeHtml(childName)}</a></li>`;
-      })
-      .join("\n");
-    parts.push(`<p><strong>子分类</strong></p>\n<ul>\n${childLinks}\n    </ul>`);
+        const href = relativeEntryHref(categorySegments(categoryName), categorySegments(childName));
+        return renderLinkItem(href, escapeHtml(childName));
+      });
+    parts.push(`<p><strong>子分类</strong></p>\n${renderLinkList(childItems)}`);
   }
 
   if (parts.length === 0) {
@@ -1202,10 +1195,10 @@ async function build() {
     const content = introHtml ? `${introHtml}\n${listingHtml}` : listingHtml;
 
     const heading = `分类：${escapeHtml(categoryName)}`;
-    const catSegments = ["Category:" + categoryName];
+    const catSegments = categorySegments(categoryName);
     const page = renderPage(template, `分类：${categoryName}`, content, '', catSegments, assetPrefixForSpecialPage(), heading, entryTopLevelSegments);
 
-    const catOutDir = path.join(outDir, siteConfig.entryUrlPrefix, "Category:" + categoryName);
+    const catOutDir = path.join(outDir, siteConfig.entryUrlPrefix, CATEGORY_NS + categoryName);
     await fs.mkdir(catOutDir, { recursive: true });
     await fs.writeFile(path.join(catOutDir, "index.html"), page, "utf8");
   }
@@ -1213,14 +1206,12 @@ async function build() {
   // Build Special:Categories page (all categories listing)
   const allCategoryNames = [...segmentsByCategory.keys()].sort((a, b) => a.localeCompare(b, "zh-CN"));
   if (allCategoryNames.length > 0) {
-    const catLinks = allCategoryNames
-      .map((name) => {
-        const count = resolveVisibleEntries(segmentsByCategory.get(name), allEntries).length;
-        const href = relativeEntryHref(["Special:Categories"], ["Category:" + name]);
-        return `      <li><a href="${href}">${escapeHtml(name)}</a>（${count}）</li>`;
-      })
-      .join("\n");
-    const specialContent = `<p>本维基中共有 ${allCategoryNames.length} 个分类。</p>\n<ul>\n${catLinks}\n    </ul>`;
+    const catItems = allCategoryNames.map((name) => {
+      const count = resolveVisibleEntries(segmentsByCategory.get(name), allEntries).length;
+      const href = relativeEntryHref(["Special:Categories"], categorySegments(name));
+      return renderLinkItem(href, escapeHtml(name), `（${count}）`);
+    });
+    const specialContent = `<p>本维基中共有 ${allCategoryNames.length} 个分类。</p>\n${renderLinkList(catItems)}`;
     const specialSegments = ["Special:Categories"];
     const specialPage = renderPage(template, '所有分类', specialContent, '', specialSegments, assetPrefixForSpecialPage(), '所有分类', entryTopLevelSegments);
     const specialOutDir = path.join(outDir, siteConfig.entryUrlPrefix, "Special:Categories");

@@ -35,16 +35,17 @@
       in {
         default = pkgs.mkShell {
           packages = [
-            pkgs.nodejs_22
+            pkgs.deno
           ];
 
           shellHook = ''
             case "$-" in
               *i*)
                 echo "Static Markdown wiki dev shell"
-                echo "  npm ci         # install dependencies"
-                echo "  npm run build  # generate out/"
-                echo "  npm run dev    # auto-build + live reload"
+                echo "  deno task build  # generate out/"
+                echo "  deno task dev    # rebuild on change + live-reload browser"
+                echo "  deno task serve  # serve out/ on http://localhost:8000 (no reload)"
+                echo "  deno task test   # verify out/ matches golden baseline"
                 ;;
             esac
           '';
@@ -58,15 +59,10 @@
         buildWiki = pkgs.writeShellApplication {
           name = "build-wiki";
           runtimeInputs = [
-            pkgs.nodejs_22
+            pkgs.deno
           ];
           text = ''
-            if [ ! -d node_modules ]; then
-              echo "node_modules/ is missing. Run: npm ci" >&2
-              exit 1
-            fi
-
-            npm run build
+            deno task build
           '';
         };
       in {

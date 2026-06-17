@@ -4,26 +4,41 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Commands
 
+This project runs on **Deno** (no npm / no `node_modules`). Dependencies are
+declared in `deno.json` (`imports`) and locked in `deno.lock`; Deno fetches them
+into its global cache on first run.
+
 ```sh
-npm ci              # install dependencies
-npm run build       # generate out/
-npm run dev         # auto-build + live-server with hot reload
-rm -rf out && npm run build   # clean rebuild
+deno task build     # generate out/
+deno task dev       # rebuild on change + auto-reload the browser (http://localhost:8000)
+deno task serve     # serve out/ at http://localhost:8000
+deno task test      # build first, then verify out/ matches the golden baseline
+deno task lint      # lint scripts/ and test/
+rm -rf out && deno task build   # clean rebuild
 ```
 
 With Nix:
 ```sh
-nix develop --command bash -c 'npm run build'
+nix develop --command bash -c 'deno task build'
 ```
 
 Verify a successful build:
 ```sh
-npm run build && test -f out/index.html
+deno task build && test -f out/index.html
 ```
+
+### Output regression guardrail
+
+`test/golden.manifest.json` records a SHA-256 of every file the build emits.
+`deno task test` (and `test/compare-out.mjs`) rebuilds and asserts the output is
+**byte-for-byte identical** to that baseline — the acceptance gate for any
+behaviour-preserving refactor. When a change *intentionally* alters output, run
+`deno run --allow-read --allow-write test/update-golden.mjs` to refresh the
+baseline and explain the change in the PR.
 
 ## Architecture
 
-This is a **static Markdown wiki generator** (Node.js ESM). The single build script `scripts/build.mjs` reads content from the repo, runs it through `marked` (with extensions), and writes HTML to `out/`. There is no framework, bundler, or dev server built-in beyond `live-server`.
+This is a **static Markdown wiki generator** (JavaScript ESM, run on Deno). The single build script `scripts/build.mjs` reads content from the repo, runs it through `marked` (with extensions), and writes HTML to `out/`. There is no framework or bundler; `deno task serve` (the `@std/http` file server) serves `out/` for local preview.
 
 ### Content layout
 
@@ -88,8 +103,29 @@ Production values are set as GitHub Repository Variables. Never write a `CNAME` 
 ### CI
 
 - **`pages.yml`**: triggers on push to `main`, builds, and force-pushes `out/` to the `pages` branch (configurable via `WIKI_PUBLISH_BRANCH`).
-- **`pr-build.yml`**: runs `npm run build` on every PR as a build check.
+- **`pr-build.yml`**: on every PR runs `deno task lint`, `deno task build`, and `deno task test` (golden-baseline check) as a build check.
 
 ### Contributor agreement
 
 PRs must include `这是我的翻译` or `这是我的著作` in the PR description to sign the contributor agreement (CC-BY-SA 4.0 with the "Part CC" MediaWiki restriction).
+
+### Security model (read before "fixing" XSS)
+
+Content is **trusted**: every entry/category/template arrives through a reviewed
+PR that also signs the contributor agreement. The pipeline is built around that
+assumption, so the following are **intentional**, not bugs:
+
+- **`marked` runs without HTML sanitization** (its default). Raw HTML in Markdown
+  passes through verbatim — this is what lets entries embed rich HTML/SVG. Do
+  **not** add a sanitizer (e.g. DOMPurify) or `marked`'s deprecated `sanitize`
+  option; it would strip legitimate markup from existing entries.
+- **`nav.js` swaps page sections with `innerHTML`** from a **same-origin** fetch
+  of the site's own already-published pages — the same trust boundary as the
+  page already loaded, and `innerHTML` does not execute injected `<script>`.
+- **Heading ids** are derived from already-rendered inline HTML; the explicit-id
+  regex captures `[^"]*`, so an id can't break out of the `id="…"` attribute.
+- **CI uses `pull_request`, never `pull_request_target`**, so untrusted fork code
+  runs without repository secrets (`pr-build.yml` is read-only).
+
+Genuine hardening that *is* applied: the third-party Mermaid bundle is loaded
+from a pinned CDN version with Subresource Integrity (`template.html`).

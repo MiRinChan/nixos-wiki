@@ -16,80 +16,29 @@
 
 import { promises as fs } from "node:fs";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
 import { marked } from "marked";
 import footnote from "marked-footnote";
 import alert from "marked-alert";
 import hljs from "highlight.js";
+import {
+  defaultFooterHtml,
+  entriesDir,
+  escapeHtml,
+  homePath,
+  outDir,
+  rootDir,
+  siteConfig,
+  sourcePathToEncodedPath,
+  staticExtensions,
+  templatePath,
+} from "./lib/config.mjs";
+import {
+  describeContext,
+  expandMarkdownTemplates,
+  makeRenderContext,
+  readRequiredFile,
+} from "./lib/template-engine.mjs";
 
-const rootDir = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
-const entriesDir = path.join(rootDir, "entries");
-const outDir = path.join(rootDir, "out");
-const markdownTemplateDir = path.join(rootDir, "template");
-const templatePath = path.join(rootDir, "template.html");
-const homePath = path.join(rootDir, "index.md");
-const maxMarkdownTemplateDepth = 32;
-
-function readEnv(name, fallback = "") {
-  const value = process.env[name];
-
-  if (value === undefined || value.trim() === "") {
-    return fallback;
-  }
-
-  return value.trim();
-}
-
-function readUrlEnv(name, fallback) {
-  const value = readEnv(name, fallback);
-
-  try {
-    return new URL(value).origin;
-  } catch (error) {
-    throw new Error(`${name} must be an absolute URL: ${value}`);
-  }
-}
-
-function readPathPrefixEnv(name, fallback) {
-  const value = readEnv(name, fallback).replace(/^\/+|\/+$/g, "");
-
-  if (!value || value.includes("?") || value.includes("#")) {
-    throw new Error(`${name} must be a non-empty URL path prefix without query or fragment`);
-  }
-
-  const segments = value.split("/");
-  if (segments.some((segment) => !segment || segment === "." || segment === "..")) {
-    throw new Error(`${name} contains an invalid path segment: ${value}`);
-  }
-
-  return value;
-}
-
-function readOptionalPathEnv(name) {
-  const value = readEnv(name);
-
-  if (!value) {
-    return "";
-  }
-
-  if (/[\r\n]/.test(value)) {
-    throw new Error(`${name} must be a single path or URL`);
-  }
-
-  return value;
-}
-
-const siteConfig = {
-  siteTitle: readEnv("WIKI_SITE_TITLE", "NixOS Wiki zh-CN"),
-  siteOrigin: readUrlEnv("WIKI_SITE_ORIGIN", "https://nixoscn.org"),
-  htmlLang: readEnv("WIKI_HTML_LANG", "zh-CN"),
-  entryUrlPrefix: readPathPrefixEnv("WIKI_ENTRY_URL_PREFIX", "wiki"),
-  editUrlTemplate: readOptionalPathEnv("WIKI_EDIT_URL_TEMPLATE") || "https://github.com/MiRinChan/nixos-wiki/edit/main/{encodedPath}",
-  editLinkLabel: readEnv("WIKI_EDIT_LINK_LABEL", "前往 GitHub 编辑此页"),
-  faviconPath: readOptionalPathEnv("WIKI_FAVICON_PATH") || "photo_2026-05-14_19-41-31.jpg",
-  cname: readOptionalPathEnv("WIKI_CNAME") || "nixoscn.org",
-};
-const defaultFooterHtml = "CC-BY-SA 4.0许可证授权，但禁止在所有 MediaWiki 程序中复制和分发。";
 
 marked.use(footnote({ description: "脚注" }));
 marked.use(alert({
@@ -180,33 +129,6 @@ marked.use({
     }
   }
 });
-
-
-const staticExtensions = new Set([
-  ".css",
-  ".gif",
-  ".ico",
-  ".jpeg",
-  ".jpg",
-  ".js",
-  ".png",
-  ".svg",
-  ".webp",
-  ".webm",
-  ".mp4",
-]);
-
-function escapeHtml(value) {
-  return String(value)
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;");
-}
-
-function sourcePathToEncodedPath(sourcePath) {
-  return sourcePath.split("/").map(encodeURIComponent).join("/");
-}
 
 function buildEditUrl(sourcePath) {
   if (!siteConfig.editUrlTemplate) {
@@ -319,7 +241,7 @@ function isAbsoluteOrSpecialUrl(value) {
 
 function parseCategories(markdown) {
   const categories = [];
-  const cleanMarkdown = markdown.replace(/^\[\[Category:([^\]]+)\]\]\s*$/gm, (match, name) => {
+  const cleanMarkdown = markdown.replace(/^\[\[Category:([^\]]+)\]\]\s*$/gm, (_match, name) => {
     const cat = name.trim();
     // Category names become path segments under out/<prefix>/Category:<name>/;
     // reject separators and traversal so a name can't escape the output dir.
@@ -425,7 +347,7 @@ function absolutizeSrcset(value, siteOrigin, pageSegments, entryTopLevelSegments
 }
 
 function absolutizeCssUrls(html, siteOrigin, pageSegments, entryTopLevelSegments) {
-  return html.replace(/url\(\s*(["']?)([^"')]+)\1\s*\)/gi, (match, quote, url) => {
+  return html.replace(/url\(\s*(["']?)([^"')]+)\1\s*\)/gi, (_match, quote, url) => {
     const absolute = absolutizeUrl(url, siteOrigin, pageSegments, entryTopLevelSegments);
     return `url(${quote}${absolute}${quote})`;
   });
@@ -497,7 +419,7 @@ async function listEntryChildren(parentDir, parentSegments) {
 }
 
 
-function relativeEntryHref(fromSegments, toSegments) {
+function relativeEntryHref(_fromSegments, toSegments) {
   if (!toSegments || toSegments.length === 0) return "/";
   const pathSegments = toSegments.map(encodeURIComponent);
   return `/${siteConfig.entryUrlPrefix}/${pathSegments.join("/")}`;
@@ -537,6 +459,25 @@ function* walkEntries(entries) {
   }
 }
 
+// Namespace prefix for category pages (out/<prefix>/Category:<name>/).
+const CATEGORY_NS = "Category:";
+
+// Entry segments addressing a category page, e.g. "数据库" → ["Category:数据库"].
+function categorySegments(name) {
+  return [CATEGORY_NS + name];
+}
+
+// One list item, indented to match the surrounding <ul>. `after` is appended
+// inside the <li> right after the anchor (a nested child list, a count, …).
+function renderLinkItem(href, label, after = "") {
+  return `      <li><a href="${href}">${label}</a>${after}</li>`;
+}
+
+// Wrap pre-rendered <li> strings in the project's <ul> block layout.
+function renderLinkList(items) {
+  return `<ul>\n${items.join("\n")}\n    </ul>`;
+}
+
 function buildEntryList(entries, currentSegments = [], options = {}) {
   const visibleEntries = entries.filter((entry) => !entry.isHidden);
 
@@ -544,446 +485,17 @@ function buildEntryList(entries, currentSegments = [], options = {}) {
     return "<p>暂无词条。</p>";
   }
 
-  const links = visibleEntries
-    .map((entry) => {
-      const href = relativeEntryHref(currentSegments, entry.segments);
-      const title = `${escapeHtml(entry.title)}${entry.isFolded ? "…" : ""}`;
-      const children = options.includeDescendants && !entry.isFolded && entry.children.length > 0
-        ? `\n${buildEntryList(entry.children, currentSegments, options)}`
-        : "";
-
-      return `      <li><a href="${href}">${title}</a>${children}</li>`;
-    })
-    .join("\n");
-
-  return `<ul>\n${links}\n    </ul>`;
-}
-
-function describeContext(context) {
-  return context.sourceName || path.relative(rootDir, context.sourcePath);
-}
-
-function templateError(context, message) {
-  throw new Error(`${describeContext(context)}: ${message}`);
-}
-
-// Read a build-critical file, turning a missing file into a readable error
-// instead of a bare ENOENT stack trace.
-async function readRequiredFile(filePath, label) {
-  try {
-    return await fs.readFile(filePath, "utf8");
-  } catch (err) {
-    if (err?.code === "ENOENT") {
-      throw new Error(`找不到${label}：${path.relative(rootDir, filePath)}`);
-    }
-    throw err;
-  }
-}
-
-function findMatchingBraces(markdown, start, openLength, context) {
-  const stack = [openLength];
-  let index = start + openLength;
-
-  while (index < markdown.length) {
-    if (markdown.startsWith("{{{", index)) {
-      stack.push(3);
-      index += 3;
-      continue;
-    }
-
-    if (markdown.startsWith("{{", index)) {
-      stack.push(2);
-      index += 2;
-      continue;
-    }
-
-    if (markdown.startsWith("}}}", index) && stack.at(-1) === 3) {
-      stack.pop();
-      if (stack.length === 0) {
-        return { index, closeLength: 3 };
-      }
-      index += 3;
-      continue;
-    }
-
-    if (markdown.startsWith("}}", index) && stack.at(-1) === 2) {
-      stack.pop();
-      if (stack.length === 0) {
-        return { index, closeLength: 2 };
-      }
-      index += 2;
-      continue;
-    }
-
-    index += 1;
-  }
-
-  templateError(context, `未闭合的模板语法：${markdown.slice(start, start + 40)}`);
-}
-
-function findTopLevelDelimiter(value, delimiter, context) {
-  const stack = [];
-  let index = 0;
-
-  while (index < value.length) {
-    if (value.startsWith("{{{", index)) {
-      stack.push(3);
-      index += 3;
-      continue;
-    }
-
-    if (value.startsWith("{{", index)) {
-      stack.push(2);
-      index += 2;
-      continue;
-    }
-
-    if (value.startsWith("}}}", index) && stack.at(-1) === 3) {
-      stack.pop();
-      index += 3;
-      continue;
-    }
-
-    if (value.startsWith("}}", index) && stack.at(-1) === 2) {
-      stack.pop();
-      index += 2;
-      continue;
-    }
-
-    if (value[index] === delimiter && stack.length === 0) {
-      return index;
-    }
-
-    index += 1;
-  }
-
-  if (stack.length > 0) {
-    templateError(context, `参数语法无法解析：${value}`);
-  }
-
-  return -1;
-}
-
-function splitTopLevel(value, delimiter, context) {
-  const parts = [];
-  let rest = value;
-  let offset = 0;
-
-  while (true) {
-    const index = findTopLevelDelimiter(rest, delimiter, context);
-
-    if (index === -1) {
-      parts.push(rest);
-      return parts;
-    }
-
-    parts.push(rest.slice(0, index));
-    offset += index + 1;
-    rest = value.slice(offset);
-  }
-}
-
-function validateMarkdownTemplateName(rawName, context) {
-  const name = rawName.trim();
-
-  if (!name) {
-    templateError(context, "模板名称不能为空");
-  }
-
-  if (name.includes("\\") || path.isAbsolute(name)) {
-    templateError(context, `非法模板路径：${name}`);
-  }
-
-  const segments = name.split("/");
-  if (segments.some((segment) => !segment || segment === "." || segment === "..")) {
-    templateError(context, `非法模板路径：${name}`);
-  }
-
-  return { name, segments };
-}
-
-function parseTemplateCall(inner, context) {
-  const parts = splitTopLevel(inner, "|", context);
-  const { name, segments } = validateMarkdownTemplateName(parts[0], context);
-  const params = new Map();
-  let anonymousIndex = 0;
-
-  for (const rawPart of parts.slice(1)) {
-    const equalsIndex = findTopLevelDelimiter(rawPart, "=", context);
-
-    if (equalsIndex === -1) {
-      anonymousIndex += 1;
-      params.set(String(anonymousIndex), rawPart);
-      continue;
-    }
-
-    const paramName = rawPart.slice(0, equalsIndex).trim();
-    if (!paramName) {
-      templateError(context, `参数名称不能为空：${rawPart}`);
-    }
-
-    params.set(paramName, rawPart.slice(equalsIndex + 1).trim());
-  }
-
-  return { name, segments, params, rawPartCount: parts.length };
-}
-
-function parseTemplateParameter(inner, context) {
-  const parts = splitTopLevel(inner, "|", context);
-
-  if (parts.length > 2) {
-    templateError(context, `参数默认值语法无法解析：${inner}`);
-  }
-
-  const name = parts[0].trim();
-  if (!name) {
-    templateError(context, `参数名称不能为空：${inner}`);
-  }
-
-  return {
-    name,
-    defaultValue: parts.length === 2 ? parts[1] : null,
-  };
-}
-
-const htmlBlockTags = new Set(
-  "address article aside base basefont blockquote body caption center col colgroup dd details dialog dir div dl dt fieldset figcaption figure footer form frame frameset h1 h2 h3 h4 h5 h6 head header hr html iframe legend li link main menu menuitem nav noframes ol optgroup option p param search section summary table tbody td tfoot th thead title tr track ul".split(" ")
-);
-
-function isIndentedCodeLine(line) {
-  return /^(?:    |\t)/.test(line);
-}
-
-function startsHtmlBlock(line) {
-  const match = line.match(/^ {0,3}<([A-Za-z][A-Za-z0-9-]*)\b[^>]*>/);
-  return Boolean(match && htmlBlockTags.has(match[1].toLowerCase()));
-}
-
-function updateHtmlBlockDepth(line, currentDepth) {
-  const tagPattern = /<\s*(\/?)\s*([A-Za-z][A-Za-z0-9-]*)\b[^>]*>/g;
-  let depth = currentDepth;
-  let match;
-
-  while ((match = tagPattern.exec(line)) !== null) {
-    const tag = match[2].toLowerCase();
-
-    if (!htmlBlockTags.has(tag)) {
-      continue;
-    }
-
-    if (match[1]) {
-      depth = Math.max(0, depth - 1);
-      continue;
-    }
-
-    if (!/\/\s*>$/.test(match[0])) {
-      depth += 1;
-    }
-  }
-
-  return depth;
-}
-
-async function expandMarkdownTemplates(markdown, context) {
-  let result = "";
-  let chunk = "";
-  let inFence = false;
-  let fenceMarker = "";
-  let fenceSize = 0;
-  let htmlBlockDepth = 0;
-  const lines = markdown.match(/[^\n]*\n|[^\n]+/g) || [""];
-
-  async function flushChunk() {
-    if (!chunk) {
-      return;
-    }
-
-    result += await expandInlineMarkdownTemplates(chunk, context);
-    chunk = "";
-  }
-
-  for (const line of lines) {
-    const fenceMatch = line.match(/^ {0,3}(`{3,}|~{3,})/);
-
-    if (!inFence && fenceMatch) {
-      await flushChunk();
-      inFence = true;
-      fenceMarker = fenceMatch[1][0];
-      fenceSize = fenceMatch[1].length;
-      result += line;
-      continue;
-    }
-
-    if (inFence) {
-      const closingMatch = line.match(/^ {0,3}(`{3,}|~{3,})[ \t]*(\r?\n?)$/);
-      if (closingMatch && closingMatch[1][0] === fenceMarker && closingMatch[1].length >= fenceSize) {
-        result += line;
-        inFence = false;
-        fenceMarker = "";
-        fenceSize = 0;
-      } else {
-        result += line;
-      }
-      continue;
-    }
-
-    const isHtmlBlockLine = htmlBlockDepth > 0 || startsHtmlBlock(line);
-
-    if (isIndentedCodeLine(line) && !isHtmlBlockLine) {
-      await flushChunk();
-      result += line;
-      continue;
-    }
-
-    chunk += line;
-    if (isHtmlBlockLine) {
-      htmlBlockDepth = updateHtmlBlockDepth(line, htmlBlockDepth);
-    }
-  }
-
-  await flushChunk();
-  return result;
-}
-
-async function expandInlineMarkdownTemplates(markdown, context) {
-  let result = "";
-  let cursor = 0;
-
-  while (cursor < markdown.length) {
-    const codeStart = markdown.indexOf("`", cursor);
-    const templateStart = markdown.indexOf("{{", cursor);
-    const nextSpecial = [codeStart, templateStart]
-      .filter((index) => index !== -1)
-      .sort((left, right) => left - right)[0];
-
-    if (nextSpecial === undefined) {
-      result += markdown.slice(cursor);
-      break;
-    }
-
-    if (nextSpecial === codeStart) {
-      result += await expandBraceMarkdownTemplates(markdown.slice(cursor, codeStart), context);
-      const tickMatch = markdown.slice(codeStart).match(/^`+/);
-      const ticks = tickMatch[0];
-      const codeEnd = markdown.indexOf(ticks, codeStart + ticks.length);
-
-      if (codeEnd === -1) {
-        result += markdown.slice(codeStart);
-        break;
-      }
-
-      result += markdown.slice(codeStart, codeEnd + ticks.length);
-      cursor = codeEnd + ticks.length;
-      continue;
-    }
-
-    result += await expandBraceMarkdownTemplates(markdown.slice(cursor, templateStart), context);
-    cursor = templateStart;
-    const expanded = await expandBraceMarkdownTemplates(markdown.slice(cursor), context, true);
-    result += expanded.value;
-    cursor += expanded.length;
-  }
-
-  return result;
-}
-
-async function expandBraceMarkdownTemplates(markdown, context, singleExpansion = false) {
-  let result = "";
-  let cursor = 0;
-
-  while (cursor < markdown.length) {
-    const start = markdown.indexOf("{{", cursor);
-
-    if (start === -1) {
-      result += markdown.slice(cursor);
-      break;
-    }
-
-    result += markdown.slice(cursor, start);
-    const openLength = markdown.startsWith("{{{", start) ? 3 : 2;
-    const close = findMatchingBraces(markdown, start, openLength, context);
-    const inner = markdown.slice(start + openLength, close.index);
-
-    if (openLength === 3) {
-      if (!context.params) {
-        templateError(context, `参数引用只能在 template/*.md 内使用：{{{${inner}}}}`);
-      }
-
-      result += await expandTemplateParameter(inner, context);
-    } else {
-      result += await expandTemplateCall(inner, context);
-    }
-
-    cursor = close.index + close.closeLength;
-
-    if (singleExpansion) break;
-  }
-
-  return singleExpansion ? { value: result, length: cursor } : result;
-}
-
-async function expandTemplateParameter(inner, context) {
-  const parameter = parseTemplateParameter(inner, context);
-
-  if (context.params.has(parameter.name)) {
-    return expandMarkdownTemplates(context.params.get(parameter.name), context);
-  }
-
-  if (parameter.defaultValue !== null) {
-    return expandMarkdownTemplates(parameter.defaultValue, context);
-  }
-
-  templateError(context, `缺少模板参数：${parameter.name}`);
-}
-
-async function expandTemplateCall(inner, context) {
-  const call = parseTemplateCall(inner, context);
-
-  if (call.name === "entries") {
-    if (call.rawPartCount !== 1) {
-      templateError(context, "{{entries}} 不接受参数");
-    }
-
-    return context.entriesHtml;
-  }
-
-  if (context.depth >= maxMarkdownTemplateDepth) {
-    templateError(context, `模板递归超过 ${maxMarkdownTemplateDepth} 层：${call.name}`);
-  }
-
-  if (context.callStack.includes(call.name)) {
-    templateError(context, `检测到模板循环：${[...context.callStack, call.name].join(" -> ")}`);
-  }
-
-  const sourcePath = path.join(markdownTemplateDir, ...call.segments) + ".md";
-  let source;
-
-  try {
-    source = await fs.readFile(sourcePath, "utf8");
-  } catch (error) {
-    if (error.code === "ENOENT") {
-      templateError(context, `缺少模板：template/${call.name}.md`);
-    }
-    throw error;
-  }
-
-  const params = new Map();
-  for (const [name, value] of call.params) {
-    params.set(name, await expandMarkdownTemplates(value, context));
-  }
-
-  return expandMarkdownTemplates(source, {
-    ...context,
-    sourcePath,
-    sourceName: `template/${call.name}.md`,
-    params,
-    depth: context.depth + 1,
-    callStack: [...context.callStack, call.name],
+  const items = visibleEntries.map((entry) => {
+    const href = relativeEntryHref(currentSegments, entry.segments);
+    const title = `${escapeHtml(entry.title)}${entry.isFolded ? "…" : ""}`;
+    const children = options.includeDescendants && !entry.isFolded && entry.children.length > 0
+      ? `\n${buildEntryList(entry.children, currentSegments, options)}`
+      : "";
+
+    return renderLinkItem(href, title, children);
   });
-}
 
-function makeRenderContext(sourcePath, sourceName, entriesHtml = '') {
-  return { sourcePath, sourceName, entriesHtml, depth: 0, callStack: [] };
+  return renderLinkList(items);
 }
 
 async function renderHome(entries) {
@@ -1002,7 +514,6 @@ async function renderHome(entries) {
 async function renderEntry(entry) {
   const rawMarkdown = entry.hasIndex ? await readRequiredFile(entry.sourcePath, "条目内容文件") : "{{entries}}";
   const { categories, cleanMarkdown } = entry.hasIndex ? parseCategories(rawMarkdown) : { categories: [], cleanMarkdown: rawMarkdown };
-  entry._categories = categories;
 
   const sourceName = entry.hasIndex
     ? path.relative(rootDir, entry.sourcePath)
@@ -1014,34 +525,33 @@ async function renderEntry(entry) {
 
   if (categories.length > 0) {
     const links = categories.map((cat) => {
-      const href = relativeEntryHref(entry.segments, ["Category:" + cat]);
+      const href = relativeEntryHref(entry.segments, categorySegments(cat));
       return `<a href="${href}">${escapeHtml(cat)}</a>`;
     }).join("，");
     html += `\n<div class="category-links">\n<hr>\n<span>分类：${links}</span>\n</div>`;
   }
 
   checkDuplicateHeadings(html, { sourcePath: entry.sourcePath, sourceName });
-  return html;
+  return { html, categories };
 }
 
-function resolveVisibleEntries(keys, flatEntries) {
+// entryIndex maps `segments.join("\0")` → entry, so lookups are O(1) instead
+// of a linear scan per key (the listings were previously O(n²) over entries).
+function resolveVisibleEntries(keys, entryIndex) {
   return [...keys]
-    .map((key) => flatEntries.find((e) => e.segments.join("\0") === key))
+    .map((key) => entryIndex.get(key))
     .filter(Boolean)
-    .filter((e) => !isEntryHiddenRecursively(e, flatEntries));
+    .filter((e) => !isEntryHiddenRecursively(e, entryIndex));
 }
 
-function isEntryHiddenRecursively(entry, allEntries) {
+function isEntryHiddenRecursively(entry, entryIndex) {
   if (entry.isHidden) return true;
   if (entry.segments.length <= 1) return false;
-  const parentSegments = entry.segments.slice(0, -1);
-  const parent = allEntries.find(
-    (e) => e.segments.length === parentSegments.length && parentSegments.every((s, i) => s === e.segments[i]),
-  );
-  return parent ? isEntryHiddenRecursively(parent, allEntries) : false;
+  const parent = entryIndex.get(entry.segments.slice(0, -1).join("\0"));
+  return parent ? isEntryHiddenRecursively(parent, entryIndex) : false;
 }
 
-function buildCategoryEntryList(segmentsByCategory, childCategoriesByParent, allEntries, categoryName) {
+function buildCategoryEntryList(segmentsByCategory, childCategoriesByParent, entryIndex, categoryName) {
   const entrySegments = segmentsByCategory.get(categoryName);
   const children = childCategoriesByParent.get(categoryName);
 
@@ -1049,35 +559,31 @@ function buildCategoryEntryList(segmentsByCategory, childCategoriesByParent, all
     return "<p>暂无词条。</p>";
   }
 
-  const flatEntries = [...allEntries];
-  let parts = [];
+  const parts = [];
 
   // Entry listing
   if (entrySegments) {
-    const visible = resolveVisibleEntries(entrySegments, flatEntries);
+    const visible = resolveVisibleEntries(entrySegments, entryIndex);
 
     if (visible.length > 0) {
-      const links = visible
-        .map((entry) => {
-          const href = relativeEntryHref(["Category:" + categoryName], entry.segments);
-          const title = `${escapeHtml(entry.title)}${entry.isFolded ? "…" : ""}`;
-          return `      <li><a href="${href}">${title}</a></li>`;
-        })
-        .join("\n");
-      parts.push(`<ul>\n${links}\n    </ul>`);
+      const items = visible.map((entry) => {
+        const href = relativeEntryHref(categorySegments(categoryName), entry.segments);
+        const title = `${escapeHtml(entry.title)}${entry.isFolded ? "…" : ""}`;
+        return renderLinkItem(href, title);
+      });
+      parts.push(renderLinkList(items));
     }
   }
 
   // Subcategory listing
   if (children && children.size > 0) {
-    const childLinks = [...children]
+    const childItems = [...children]
       .sort((a, b) => a.localeCompare(b, "zh-CN"))
       .map((childName) => {
-        const href = relativeEntryHref(["Category:" + categoryName], ["Category:" + childName]);
-        return `      <li><a href="${href}">${escapeHtml(childName)}</a></li>`;
-      })
-      .join("\n");
-    parts.push(`<p><strong>子分类</strong></p>\n<ul>\n${childLinks}\n    </ul>`);
+        const href = relativeEntryHref(categorySegments(categoryName), categorySegments(childName));
+        return renderLinkItem(href, escapeHtml(childName));
+      });
+    parts.push(`<p><strong>子分类</strong></p>\n${renderLinkList(childItems)}`);
   }
 
   if (parts.length === 0) {
@@ -1130,32 +636,20 @@ async function writeCname() {
   await fs.writeFile(path.join(outDir, "CNAME"), `${siteConfig.cname}\n`, "utf8");
 }
 
-async function build() {
-  const template = await readRequiredFile(templatePath, "页面模板");
-  const entries = await listEntries();
-  const entryTopLevelSegments = new Set(entries.map((entry) => entry.segments[0]));
-  const categoriesDir = path.join(rootDir, "categories");
-
-  await fs.rm(outDir, { recursive: true, force: true });
-  await fs.mkdir(outDir, { recursive: true });
+// Render every entry page and, as a side effect, collect the category → entry
+// memberships referenced by those entries. Returns segmentsByCategory.
+async function renderAllEntries(template, entries, entryTopLevelSegments) {
+  const segmentsByCategory = new Map();
 
   for (const entry of walkEntries(entries)) {
-    const html = await renderEntry(entry);
+    const { html, categories } = await renderEntry(entry);
     const sourcePath = `entries/${entry.segments.join("/")}/index.md`;
     const page = renderPage(template, entry.title, html, buildEditUrl(sourcePath), entry.segments, assetPrefixForEntry(entry), buildEntryHeading(entry), entryTopLevelSegments);
     const entryOutDir = path.join(outDir, siteConfig.entryUrlPrefix, ...entry.segments);
     await fs.mkdir(entryOutDir, { recursive: true });
     await fs.writeFile(path.join(entryOutDir, "index.html"), page, "utf8");
-  }
 
-  const home = renderPage(template, siteConfig.siteTitle, await renderHome(entries), buildEditUrl("index.md"), [], '', escapeHtml(siteConfig.siteTitle), entryTopLevelSegments);
-  await fs.writeFile(path.join(outDir, "index.html"), home, "utf8");
-
-  // Collect categories from all entries
-  const segmentsByCategory = new Map();
-  for (const entry of walkEntries(entries)) {
-    const cats = entry._categories || [];
-    for (const cat of cats) {
+    for (const cat of categories) {
       if (!segmentsByCategory.has(cat)) {
         segmentsByCategory.set(cat, new Set());
       }
@@ -1163,10 +657,21 @@ async function build() {
     }
   }
 
-  // Collect parent-child relationships from category description files
-  // Also ensure parent categories (which may have no direct entries) get entries
+  return segmentsByCategory;
+}
+
+async function renderHomePage(template, entries, entryTopLevelSegments) {
+  const home = renderPage(template, siteConfig.siteTitle, await renderHome(entries), buildEditUrl("index.md"), [], '', escapeHtml(siteConfig.siteTitle), entryTopLevelSegments);
+  await fs.writeFile(path.join(outDir, "index.html"), home, "utf8");
+}
+
+// Read category description files to discover parent → child relationships, and
+// ensure every referenced parent category has an entry in segmentsByCategory
+// (mutated in place) so its page is built even with no direct member entries.
+async function collectCategoryRelations(segmentsByCategory, categoriesDir) {
   const childCategoriesByParent = new Map();
   const catMarkdownCache = new Map(); // catIndexPath → { categories, cleanMarkdown }
+
   for (const [categoryName] of segmentsByCategory) {
     const catIndexPath = path.join(categoriesDir, categoryName, "index.md");
     if (await pathExists(catIndexPath)) {
@@ -1178,7 +683,6 @@ async function build() {
           childCategoriesByParent.set(parentCat, new Set());
         }
         childCategoriesByParent.get(parentCat).add(categoryName);
-        // Ensure parent category also gets an entry in segmentsByCategory (empty set = no entries, but page is built)
         if (!segmentsByCategory.has(parentCat)) {
           segmentsByCategory.set(parentCat, new Set());
         }
@@ -1186,8 +690,12 @@ async function build() {
     }
   }
 
-  // Build category listing pages
-  const allEntries = [...walkEntries(entries)];
+  return { childCategoriesByParent, catMarkdownCache };
+}
+
+async function renderCategoryPages(template, categoryData, entryIndex, categoriesDir, entryTopLevelSegments) {
+  const { segmentsByCategory, childCategoriesByParent, catMarkdownCache } = categoryData;
+
   for (const [categoryName] of segmentsByCategory) {
     const catIndexPath = path.join(categoriesDir, categoryName, "index.md");
     let introHtml = '';
@@ -1198,41 +706,66 @@ async function build() {
       introHtml = marked.parse(expanded);
     }
 
-    const listingHtml = buildCategoryEntryList(segmentsByCategory, childCategoriesByParent, allEntries, categoryName);
+    const listingHtml = buildCategoryEntryList(segmentsByCategory, childCategoriesByParent, entryIndex, categoryName);
     const content = introHtml ? `${introHtml}\n${listingHtml}` : listingHtml;
 
     const heading = `分类：${escapeHtml(categoryName)}`;
-    const catSegments = ["Category:" + categoryName];
+    const catSegments = categorySegments(categoryName);
     const page = renderPage(template, `分类：${categoryName}`, content, '', catSegments, assetPrefixForSpecialPage(), heading, entryTopLevelSegments);
 
-    const catOutDir = path.join(outDir, siteConfig.entryUrlPrefix, "Category:" + categoryName);
+    const catOutDir = path.join(outDir, siteConfig.entryUrlPrefix, CATEGORY_NS + categoryName);
     await fs.mkdir(catOutDir, { recursive: true });
     await fs.writeFile(path.join(catOutDir, "index.html"), page, "utf8");
   }
+}
 
-  // Build Special:Categories page (all categories listing)
+async function renderSpecialCategoriesPage(template, segmentsByCategory, entryIndex, entryTopLevelSegments) {
   const allCategoryNames = [...segmentsByCategory.keys()].sort((a, b) => a.localeCompare(b, "zh-CN"));
-  if (allCategoryNames.length > 0) {
-    const catLinks = allCategoryNames
-      .map((name) => {
-        const count = resolveVisibleEntries(segmentsByCategory.get(name), allEntries).length;
-        const href = relativeEntryHref(["Special:Categories"], ["Category:" + name]);
-        return `      <li><a href="${href}">${escapeHtml(name)}</a>（${count}）</li>`;
-      })
-      .join("\n");
-    const specialContent = `<p>本维基中共有 ${allCategoryNames.length} 个分类。</p>\n<ul>\n${catLinks}\n    </ul>`;
-    const specialSegments = ["Special:Categories"];
-    const specialPage = renderPage(template, '所有分类', specialContent, '', specialSegments, assetPrefixForSpecialPage(), '所有分类', entryTopLevelSegments);
-    const specialOutDir = path.join(outDir, siteConfig.entryUrlPrefix, "Special:Categories");
-    await fs.mkdir(specialOutDir, { recursive: true });
-    await fs.writeFile(path.join(specialOutDir, "index.html"), specialPage, "utf8");
+  if (allCategoryNames.length === 0) return;
+
+  const catItems = allCategoryNames.map((name) => {
+    const count = resolveVisibleEntries(segmentsByCategory.get(name), entryIndex).length;
+    const href = relativeEntryHref(["Special:Categories"], categorySegments(name));
+    return renderLinkItem(href, escapeHtml(name), `（${count}）`);
+  });
+  const specialContent = `<p>本维基中共有 ${allCategoryNames.length} 个分类。</p>\n${renderLinkList(catItems)}`;
+  const specialSegments = ["Special:Categories"];
+  const specialPage = renderPage(template, '所有分类', specialContent, '', specialSegments, assetPrefixForSpecialPage(), '所有分类', entryTopLevelSegments);
+  const specialOutDir = path.join(outDir, siteConfig.entryUrlPrefix, "Special:Categories");
+  await fs.mkdir(specialOutDir, { recursive: true });
+  await fs.writeFile(path.join(specialOutDir, "index.html"), specialPage, "utf8");
+}
+
+export async function build() {
+  const template = await readRequiredFile(templatePath, "页面模板");
+  const entries = await listEntries();
+  const entryTopLevelSegments = new Set(entries.map((entry) => entry.segments[0]));
+  const categoriesDir = path.join(rootDir, "categories");
+
+  await fs.rm(outDir, { recursive: true, force: true });
+  await fs.mkdir(outDir, { recursive: true });
+
+  const segmentsByCategory = await renderAllEntries(template, entries, entryTopLevelSegments);
+  await renderHomePage(template, entries, entryTopLevelSegments);
+
+  const { childCategoriesByParent, catMarkdownCache } = await collectCategoryRelations(segmentsByCategory, categoriesDir);
+
+  const entryIndex = new Map();
+  for (const entry of walkEntries(entries)) {
+    entryIndex.set(entry.segments.join("\0"), entry);
   }
+  await renderCategoryPages(template, { segmentsByCategory, childCategoriesByParent, catMarkdownCache }, entryIndex, categoriesDir, entryTopLevelSegments);
+  await renderSpecialCategoriesPage(template, segmentsByCategory, entryIndex, entryTopLevelSegments);
 
   await copyStaticAssets();
   await writeCname();
 }
 
-build().catch((err) => {
-  console.error(`构建失败：${err?.message ?? err}`);
-  process.exitCode = 1;
-});
+// Only auto-run when invoked directly (deno task build), not when imported
+// by the dev server, which calls build() itself on each rebuild.
+if (import.meta.main) {
+  build().catch((err) => {
+    console.error(`构建失败：${err?.message ?? err}`);
+    process.exitCode = 1;
+  });
+}

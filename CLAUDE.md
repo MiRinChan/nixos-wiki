@@ -4,26 +4,41 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Commands
 
+This project runs on **Deno** (no npm / no `node_modules`). Dependencies are
+declared in `deno.json` (`imports`) and locked in `deno.lock`; Deno fetches them
+into its global cache on first run.
+
 ```sh
-npm ci              # install dependencies
-npm run build       # generate out/
-npm run dev         # auto-build + live-server with hot reload
-rm -rf out && npm run build   # clean rebuild
+deno task build     # generate out/
+deno task dev       # rebuild on change (deno --watch; refresh browser manually)
+deno task serve     # serve out/ at http://localhost:8000
+deno task test      # build first, then verify out/ matches the golden baseline
+deno task lint      # lint scripts/ and test/
+rm -rf out && deno task build   # clean rebuild
 ```
 
 With Nix:
 ```sh
-nix develop --command bash -c 'npm run build'
+nix develop --command bash -c 'deno task build'
 ```
 
 Verify a successful build:
 ```sh
-npm run build && test -f out/index.html
+deno task build && test -f out/index.html
 ```
+
+### Output regression guardrail
+
+`test/golden.manifest.json` records a SHA-256 of every file the build emits.
+`deno task test` (and `test/compare-out.mjs`) rebuilds and asserts the output is
+**byte-for-byte identical** to that baseline — the acceptance gate for any
+behaviour-preserving refactor. When a change *intentionally* alters output, run
+`deno run --allow-read --allow-write test/update-golden.mjs` to refresh the
+baseline and explain the change in the PR.
 
 ## Architecture
 
-This is a **static Markdown wiki generator** (Node.js ESM). The single build script `scripts/build.mjs` reads content from the repo, runs it through `marked` (with extensions), and writes HTML to `out/`. There is no framework, bundler, or dev server built-in beyond `live-server`.
+This is a **static Markdown wiki generator** (JavaScript ESM, run on Deno). The single build script `scripts/build.mjs` reads content from the repo, runs it through `marked` (with extensions), and writes HTML to `out/`. There is no framework or bundler; `deno task serve` (the `@std/http` file server) serves `out/` for local preview.
 
 ### Content layout
 
@@ -88,7 +103,7 @@ Production values are set as GitHub Repository Variables. Never write a `CNAME` 
 ### CI
 
 - **`pages.yml`**: triggers on push to `main`, builds, and force-pushes `out/` to the `pages` branch (configurable via `WIKI_PUBLISH_BRANCH`).
-- **`pr-build.yml`**: runs `npm run build` on every PR as a build check.
+- **`pr-build.yml`**: on every PR runs `deno task lint`, `deno task build`, and `deno task test` (golden-baseline check) as a build check.
 
 ### Contributor agreement
 

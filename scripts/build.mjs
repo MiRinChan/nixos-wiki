@@ -45,7 +45,7 @@ function readUrlEnv(name, fallback) {
 
   try {
     return new URL(value).origin;
-  } catch (error) {
+  } catch {
     throw new Error(`${name} must be an absolute URL: ${value}`);
   }
 }
@@ -319,7 +319,7 @@ function isAbsoluteOrSpecialUrl(value) {
 
 function parseCategories(markdown) {
   const categories = [];
-  const cleanMarkdown = markdown.replace(/^\[\[Category:([^\]]+)\]\]\s*$/gm, (match, name) => {
+  const cleanMarkdown = markdown.replace(/^\[\[Category:([^\]]+)\]\]\s*$/gm, (_match, name) => {
     const cat = name.trim();
     // Category names become path segments under out/<prefix>/Category:<name>/;
     // reject separators and traversal so a name can't escape the output dir.
@@ -425,7 +425,7 @@ function absolutizeSrcset(value, siteOrigin, pageSegments, entryTopLevelSegments
 }
 
 function absolutizeCssUrls(html, siteOrigin, pageSegments, entryTopLevelSegments) {
-  return html.replace(/url\(\s*(["']?)([^"')]+)\1\s*\)/gi, (match, quote, url) => {
+  return html.replace(/url\(\s*(["']?)([^"')]+)\1\s*\)/gi, (_match, quote, url) => {
     const absolute = absolutizeUrl(url, siteOrigin, pageSegments, entryTopLevelSegments);
     return `url(${quote}${absolute}${quote})`;
   });
@@ -497,7 +497,7 @@ async function listEntryChildren(parentDir, parentSegments) {
 }
 
 
-function relativeEntryHref(fromSegments, toSegments) {
+function relativeEntryHref(_fromSegments, toSegments) {
   if (!toSegments || toSegments.length === 0) return "/";
   const pathSegments = toSegments.map(encodeURIComponent);
   return `/${siteConfig.entryUrlPrefix}/${pathSegments.join("/")}`;
@@ -751,7 +751,7 @@ const htmlBlockTags = new Set(
 );
 
 function isIndentedCodeLine(line) {
-  return /^(?:    |\t)/.test(line);
+  return /^(?: {4}|\t)/.test(line);
 }
 
 function startsHtmlBlock(line) {
@@ -926,11 +926,11 @@ async function expandTemplateParameter(inner, context) {
   const parameter = parseTemplateParameter(inner, context);
 
   if (context.params.has(parameter.name)) {
-    return expandMarkdownTemplates(context.params.get(parameter.name), context);
+    return await expandMarkdownTemplates(context.params.get(parameter.name), context);
   }
 
   if (parameter.defaultValue !== null) {
-    return expandMarkdownTemplates(parameter.defaultValue, context);
+    return await expandMarkdownTemplates(parameter.defaultValue, context);
   }
 
   templateError(context, `缺少模板参数：${parameter.name}`);
@@ -1050,7 +1050,7 @@ function buildCategoryEntryList(segmentsByCategory, childCategoriesByParent, all
   }
 
   const flatEntries = [...allEntries];
-  let parts = [];
+  const parts = [];
 
   // Entry listing
   if (entrySegments) {

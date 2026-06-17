@@ -535,24 +535,23 @@ async function renderEntry(entry) {
   return { html, categories };
 }
 
-function resolveVisibleEntries(keys, flatEntries) {
+// entryIndex maps `segments.join("\0")` → entry, so lookups are O(1) instead
+// of a linear scan per key (the listings were previously O(n²) over entries).
+function resolveVisibleEntries(keys, entryIndex) {
   return [...keys]
-    .map((key) => flatEntries.find((e) => e.segments.join("\0") === key))
+    .map((key) => entryIndex.get(key))
     .filter(Boolean)
-    .filter((e) => !isEntryHiddenRecursively(e, flatEntries));
+    .filter((e) => !isEntryHiddenRecursively(e, entryIndex));
 }
 
-function isEntryHiddenRecursively(entry, allEntries) {
+function isEntryHiddenRecursively(entry, entryIndex) {
   if (entry.isHidden) return true;
   if (entry.segments.length <= 1) return false;
-  const parentSegments = entry.segments.slice(0, -1);
-  const parent = allEntries.find(
-    (e) => e.segments.length === parentSegments.length && parentSegments.every((s, i) => s === e.segments[i]),
-  );
-  return parent ? isEntryHiddenRecursively(parent, allEntries) : false;
+  const parent = entryIndex.get(entry.segments.slice(0, -1).join("\0"));
+  return parent ? isEntryHiddenRecursively(parent, entryIndex) : false;
 }
 
-function buildCategoryEntryList(segmentsByCategory, childCategoriesByParent, allEntries, categoryName) {
+function buildCategoryEntryList(segmentsByCategory, childCategoriesByParent, entryIndex, categoryName) {
   const entrySegments = segmentsByCategory.get(categoryName);
   const children = childCategoriesByParent.get(categoryName);
 
@@ -560,12 +559,11 @@ function buildCategoryEntryList(segmentsByCategory, childCategoriesByParent, all
     return "<p>暂无词条。</p>";
   }
 
-  const flatEntries = [...allEntries];
   const parts = [];
 
   // Entry listing
   if (entrySegments) {
-    const visible = resolveVisibleEntries(entrySegments, flatEntries);
+    const visible = resolveVisibleEntries(entrySegments, entryIndex);
 
     if (visible.length > 0) {
       const items = visible.map((entry) => {
@@ -695,7 +693,7 @@ async function collectCategoryRelations(segmentsByCategory, categoriesDir) {
   return { childCategoriesByParent, catMarkdownCache };
 }
 
-async function renderCategoryPages(template, categoryData, allEntries, categoriesDir, entryTopLevelSegments) {
+async function renderCategoryPages(template, categoryData, entryIndex, categoriesDir, entryTopLevelSegments) {
   const { segmentsByCategory, childCategoriesByParent, catMarkdownCache } = categoryData;
 
   for (const [categoryName] of segmentsByCategory) {
@@ -708,7 +706,7 @@ async function renderCategoryPages(template, categoryData, allEntries, categorie
       introHtml = marked.parse(expanded);
     }
 
-    const listingHtml = buildCategoryEntryList(segmentsByCategory, childCategoriesByParent, allEntries, categoryName);
+    const listingHtml = buildCategoryEntryList(segmentsByCategory, childCategoriesByParent, entryIndex, categoryName);
     const content = introHtml ? `${introHtml}\n${listingHtml}` : listingHtml;
 
     const heading = `分类：${escapeHtml(categoryName)}`;
@@ -721,12 +719,12 @@ async function renderCategoryPages(template, categoryData, allEntries, categorie
   }
 }
 
-async function renderSpecialCategoriesPage(template, segmentsByCategory, allEntries, entryTopLevelSegments) {
+async function renderSpecialCategoriesPage(template, segmentsByCategory, entryIndex, entryTopLevelSegments) {
   const allCategoryNames = [...segmentsByCategory.keys()].sort((a, b) => a.localeCompare(b, "zh-CN"));
   if (allCategoryNames.length === 0) return;
 
   const catItems = allCategoryNames.map((name) => {
-    const count = resolveVisibleEntries(segmentsByCategory.get(name), allEntries).length;
+    const count = resolveVisibleEntries(segmentsByCategory.get(name), entryIndex).length;
     const href = relativeEntryHref(["Special:Categories"], categorySegments(name));
     return renderLinkItem(href, escapeHtml(name), `（${count}）`);
   });
@@ -752,9 +750,12 @@ async function build() {
 
   const { childCategoriesByParent, catMarkdownCache } = await collectCategoryRelations(segmentsByCategory, categoriesDir);
 
-  const allEntries = [...walkEntries(entries)];
-  await renderCategoryPages(template, { segmentsByCategory, childCategoriesByParent, catMarkdownCache }, allEntries, categoriesDir, entryTopLevelSegments);
-  await renderSpecialCategoriesPage(template, segmentsByCategory, allEntries, entryTopLevelSegments);
+  const entryIndex = new Map();
+  for (const entry of walkEntries(entries)) {
+    entryIndex.set(entry.segments.join("\0"), entry);
+  }
+  await renderCategoryPages(template, { segmentsByCategory, childCategoriesByParent, catMarkdownCache }, entryIndex, categoriesDir, entryTopLevelSegments);
+  await renderSpecialCategoriesPage(template, segmentsByCategory, entryIndex, entryTopLevelSegments);
 
   await copyStaticAssets();
   await writeCname();

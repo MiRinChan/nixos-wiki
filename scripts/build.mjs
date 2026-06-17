@@ -998,7 +998,6 @@ async function renderHome(entries) {
 async function renderEntry(entry) {
   const rawMarkdown = entry.hasIndex ? await readRequiredFile(entry.sourcePath, "条目内容文件") : "{{entries}}";
   const { categories, cleanMarkdown } = entry.hasIndex ? parseCategories(rawMarkdown) : { categories: [], cleanMarkdown: rawMarkdown };
-  entry._categories = categories;
 
   const sourceName = entry.hasIndex
     ? path.relative(rootDir, entry.sourcePath)
@@ -1017,7 +1016,7 @@ async function renderEntry(entry) {
   }
 
   checkDuplicateHeadings(html, { sourcePath: entry.sourcePath, sourceName });
-  return html;
+  return { html, categories };
 }
 
 function resolveVisibleEntries(keys, flatEntries) {
@@ -1123,32 +1122,20 @@ async function writeCname() {
   await fs.writeFile(path.join(outDir, "CNAME"), `${siteConfig.cname}\n`, "utf8");
 }
 
-async function build() {
-  const template = await readRequiredFile(templatePath, "页面模板");
-  const entries = await listEntries();
-  const entryTopLevelSegments = new Set(entries.map((entry) => entry.segments[0]));
-  const categoriesDir = path.join(rootDir, "categories");
-
-  await fs.rm(outDir, { recursive: true, force: true });
-  await fs.mkdir(outDir, { recursive: true });
+// Render every entry page and, as a side effect, collect the category → entry
+// memberships referenced by those entries. Returns segmentsByCategory.
+async function renderAllEntries(template, entries, entryTopLevelSegments) {
+  const segmentsByCategory = new Map();
 
   for (const entry of walkEntries(entries)) {
-    const html = await renderEntry(entry);
+    const { html, categories } = await renderEntry(entry);
     const sourcePath = `entries/${entry.segments.join("/")}/index.md`;
     const page = renderPage(template, entry.title, html, buildEditUrl(sourcePath), entry.segments, assetPrefixForEntry(entry), buildEntryHeading(entry), entryTopLevelSegments);
     const entryOutDir = path.join(outDir, siteConfig.entryUrlPrefix, ...entry.segments);
     await fs.mkdir(entryOutDir, { recursive: true });
     await fs.writeFile(path.join(entryOutDir, "index.html"), page, "utf8");
-  }
 
-  const home = renderPage(template, siteConfig.siteTitle, await renderHome(entries), buildEditUrl("index.md"), [], '', escapeHtml(siteConfig.siteTitle), entryTopLevelSegments);
-  await fs.writeFile(path.join(outDir, "index.html"), home, "utf8");
-
-  // Collect categories from all entries
-  const segmentsByCategory = new Map();
-  for (const entry of walkEntries(entries)) {
-    const cats = entry._categories || [];
-    for (const cat of cats) {
+    for (const cat of categories) {
       if (!segmentsByCategory.has(cat)) {
         segmentsByCategory.set(cat, new Set());
       }
@@ -1156,10 +1143,21 @@ async function build() {
     }
   }
 
-  // Collect parent-child relationships from category description files
-  // Also ensure parent categories (which may have no direct entries) get entries
+  return segmentsByCategory;
+}
+
+async function renderHomePage(template, entries, entryTopLevelSegments) {
+  const home = renderPage(template, siteConfig.siteTitle, await renderHome(entries), buildEditUrl("index.md"), [], '', escapeHtml(siteConfig.siteTitle), entryTopLevelSegments);
+  await fs.writeFile(path.join(outDir, "index.html"), home, "utf8");
+}
+
+// Read category description files to discover parent → child relationships, and
+// ensure every referenced parent category has an entry in segmentsByCategory
+// (mutated in place) so its page is built even with no direct member entries.
+async function collectCategoryRelations(segmentsByCategory, categoriesDir) {
   const childCategoriesByParent = new Map();
   const catMarkdownCache = new Map(); // catIndexPath → { categories, cleanMarkdown }
+
   for (const [categoryName] of segmentsByCategory) {
     const catIndexPath = path.join(categoriesDir, categoryName, "index.md");
     if (await pathExists(catIndexPath)) {
@@ -1171,7 +1169,6 @@ async function build() {
           childCategoriesByParent.set(parentCat, new Set());
         }
         childCategoriesByParent.get(parentCat).add(categoryName);
-        // Ensure parent category also gets an entry in segmentsByCategory (empty set = no entries, but page is built)
         if (!segmentsByCategory.has(parentCat)) {
           segmentsByCategory.set(parentCat, new Set());
         }
@@ -1179,8 +1176,12 @@ async function build() {
     }
   }
 
-  // Build category listing pages
-  const allEntries = [...walkEntries(entries)];
+  return { childCategoriesByParent, catMarkdownCache };
+}
+
+async function renderCategoryPages(template, categoryData, allEntries, categoriesDir, entryTopLevelSegments) {
+  const { segmentsByCategory, childCategoriesByParent, catMarkdownCache } = categoryData;
+
   for (const [categoryName] of segmentsByCategory) {
     const catIndexPath = path.join(categoriesDir, categoryName, "index.md");
     let introHtml = '';
@@ -1202,22 +1203,42 @@ async function build() {
     await fs.mkdir(catOutDir, { recursive: true });
     await fs.writeFile(path.join(catOutDir, "index.html"), page, "utf8");
   }
+}
 
-  // Build Special:Categories page (all categories listing)
+async function renderSpecialCategoriesPage(template, segmentsByCategory, allEntries, entryTopLevelSegments) {
   const allCategoryNames = [...segmentsByCategory.keys()].sort((a, b) => a.localeCompare(b, "zh-CN"));
-  if (allCategoryNames.length > 0) {
-    const catItems = allCategoryNames.map((name) => {
-      const count = resolveVisibleEntries(segmentsByCategory.get(name), allEntries).length;
-      const href = relativeEntryHref(["Special:Categories"], categorySegments(name));
-      return renderLinkItem(href, escapeHtml(name), `（${count}）`);
-    });
-    const specialContent = `<p>本维基中共有 ${allCategoryNames.length} 个分类。</p>\n${renderLinkList(catItems)}`;
-    const specialSegments = ["Special:Categories"];
-    const specialPage = renderPage(template, '所有分类', specialContent, '', specialSegments, assetPrefixForSpecialPage(), '所有分类', entryTopLevelSegments);
-    const specialOutDir = path.join(outDir, siteConfig.entryUrlPrefix, "Special:Categories");
-    await fs.mkdir(specialOutDir, { recursive: true });
-    await fs.writeFile(path.join(specialOutDir, "index.html"), specialPage, "utf8");
-  }
+  if (allCategoryNames.length === 0) return;
+
+  const catItems = allCategoryNames.map((name) => {
+    const count = resolveVisibleEntries(segmentsByCategory.get(name), allEntries).length;
+    const href = relativeEntryHref(["Special:Categories"], categorySegments(name));
+    return renderLinkItem(href, escapeHtml(name), `（${count}）`);
+  });
+  const specialContent = `<p>本维基中共有 ${allCategoryNames.length} 个分类。</p>\n${renderLinkList(catItems)}`;
+  const specialSegments = ["Special:Categories"];
+  const specialPage = renderPage(template, '所有分类', specialContent, '', specialSegments, assetPrefixForSpecialPage(), '所有分类', entryTopLevelSegments);
+  const specialOutDir = path.join(outDir, siteConfig.entryUrlPrefix, "Special:Categories");
+  await fs.mkdir(specialOutDir, { recursive: true });
+  await fs.writeFile(path.join(specialOutDir, "index.html"), specialPage, "utf8");
+}
+
+async function build() {
+  const template = await readRequiredFile(templatePath, "页面模板");
+  const entries = await listEntries();
+  const entryTopLevelSegments = new Set(entries.map((entry) => entry.segments[0]));
+  const categoriesDir = path.join(rootDir, "categories");
+
+  await fs.rm(outDir, { recursive: true, force: true });
+  await fs.mkdir(outDir, { recursive: true });
+
+  const segmentsByCategory = await renderAllEntries(template, entries, entryTopLevelSegments);
+  await renderHomePage(template, entries, entryTopLevelSegments);
+
+  const { childCategoriesByParent, catMarkdownCache } = await collectCategoryRelations(segmentsByCategory, categoriesDir);
+
+  const allEntries = [...walkEntries(entries)];
+  await renderCategoryPages(template, { segmentsByCategory, childCategoriesByParent, catMarkdownCache }, allEntries, categoriesDir, entryTopLevelSegments);
+  await renderSpecialCategoriesPage(template, segmentsByCategory, allEntries, entryTopLevelSegments);
 
   await copyStaticAssets();
   await writeCname();

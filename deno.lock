@@ -89,6 +89,7 @@
   },
   "workspace": {
     "dependencies": [
+      "jsr:@std/http@1",
       "npm:highlight.js@11.11.1",
       "npm:marked-alert@2.1.2",
       "npm:marked-footnote@1.4.0",

@@ -1,7 +1,7 @@
 {
   "tasks": {
     "build": "deno run --allow-read --allow-write --allow-env --allow-sys scripts/build.mjs",
-    "dev": "WIKI_SITE_ORIGIN=http://localhost:8000 deno run --allow-read --allow-write --allow-env --allow-sys --watch=entries,categories,template,index.md,template.html,styles-base.css,styles-code-light.css,styles-code-dark.css scripts/build.mjs",
+    "dev": "WIKI_SITE_ORIGIN=http://localhost:8000 deno run --allow-read --allow-write --allow-env --allow-sys --allow-net scripts/dev-server.mjs",
     "serve": "deno run --allow-read --allow-net --allow-sys jsr:@std/http@1/file-server --port 8000 out",
     "init-site": "deno run --allow-read --allow-write --allow-env --allow-sys scripts/init-site.mjs",
     "upgrade-program": "deno run --allow-read --allow-write --allow-env --allow-sys scripts/upgrade-program.mjs",
@@ -10,6 +10,7 @@
     "fmt": "deno fmt"
   },
   "imports": {
+    "@std/http": "jsr:@std/http@1",
     "marked": "npm:marked@16.4.2",
     "marked-alert": "npm:marked-alert@2.1.2",
     "marked-footnote": "npm:marked-footnote@1.4.0",

@@ -736,7 +736,7 @@ async function renderSpecialCategoriesPage(template, segmentsByCategory, entryIn
   await fs.writeFile(path.join(specialOutDir, "index.html"), specialPage, "utf8");
 }
 
-async function build() {
+export async function build() {
   const template = await readRequiredFile(templatePath, "页面模板");
   const entries = await listEntries();
   const entryTopLevelSegments = new Set(entries.map((entry) => entry.segments[0]));
@@ -761,7 +761,11 @@ async function build() {
   await writeCname();
 }
 
-build().catch((err) => {
-  console.error(`构建失败：${err?.message ?? err}`);
-  process.exitCode = 1;
-});
+// Only auto-run when invoked directly (deno task build), not when imported
+// by the dev server, which calls build() itself on each rebuild.
+if (import.meta.main) {
+  build().catch((err) => {
+    console.error(`构建失败：${err?.message ?? err}`);
+    process.exitCode = 1;
+  });
+}

@@ -30,7 +30,7 @@ deno task build
 编译测试：
 
 ```sh
-nix develop --command bash -c 'deno task test'
+deno task test
 ```
 
 ### 提交之前

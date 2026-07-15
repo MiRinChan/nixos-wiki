@@ -6,15 +6,28 @@
 (function () {
     const content = document.getElementById("wiki-content");
     const progress = document.getElementById("wiki-progress");
+    const skipLink = document.querySelector(".skip-link");
+    const status = document.getElementById("wiki-navigation-status");
+    const reduceMotionQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
     if (!content || !progress || !window.fetch || !window.DOMParser) return;
 
     const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
     let navToken = 0;
     let currentController = null;
-    let currentPath = window.location.pathname;
+    let currentPage = window.location.pathname + window.location.search;
+    let progressTimers = [];
+
+    if ("scrollRestoration" in history) history.scrollRestoration = "manual";
+    history.replaceState({ ...history.state, scrollX: scrollX, scrollY: scrollY }, "");
+
+    function clearProgressTimers() {
+        for (const timer of progressTimers) clearTimeout(timer);
+        progressTimers = [];
+    }
 
     function startProgress() {
+        clearProgressTimers();
         progress.hidden = false;
         progress.style.transition = "none";
         progress.style.opacity = "1";
@@ -25,15 +38,20 @@
     }
 
     function finishProgress() {
+        clearProgressTimers();
         progress.style.transition = "width 0.2s ease";
         progress.style.width = "100%";
-        setTimeout(function () {
+        if (reduceMotionQuery.matches) {
+            progress.hidden = true;
+            return;
+        }
+        progressTimers.push(setTimeout(function () {
             progress.style.transition = "opacity 0.3s ease";
             progress.style.opacity = "0";
-            setTimeout(function () {
+            progressTimers.push(setTimeout(function () {
                 progress.hidden = true;
-            }, 320);
-        }, 220);
+            }, 320));
+        }, 220));
     }
 
     function applyScroll(url) {
@@ -45,7 +63,7 @@
         }
     }
 
-    async function navigate(url, push) {
+    async function navigate(url, push, savedPosition) {
         const token = ++navToken;
         if (currentController) currentController.abort();
         const controller = new AbortController();
@@ -76,15 +94,17 @@
 
         const doc = new DOMParser().parseFromString(text, "text/html");
         const newContent = doc.getElementById("wiki-content");
-        if (!newContent) {
+        const responseUrl = new URL(response.url || url, window.location.href);
+        if (!newContent || responseUrl.origin !== window.location.origin) {
             window.location.href = url;
             return;
         }
         const newHeading = doc.querySelector("h1");
         const newFooter = doc.querySelector("footer");
+        const newToc = doc.getElementById("toc");
 
         content.classList.add("wiki-fading");
-        await delay(160);
+        if (!reduceMotionQuery.matches) await delay(160);
         if (token !== navToken) return;
 
         content.innerHTML = newContent.innerHTML;
@@ -94,6 +114,14 @@
 
         const footer = document.querySelector("footer");
         if (footer && newFooter) footer.innerHTML = newFooter.innerHTML;
+
+        const toc = document.getElementById("toc");
+        if (toc && newToc) {
+            toc.innerHTML = newToc.innerHTML;
+            toc.hidden = newToc.hidden;
+            toc.className = newToc.className;
+            document.body.className = doc.body.className;
+        }
 
         document.title = doc.title;
 
@@ -110,8 +138,16 @@
         syncMeta('meta[name="description"]',        "content", doc);
         syncMeta('link[rel="canonical"]',           "href",    doc);
 
-        if (push) history.pushState({}, "", url);
-        currentPath = new URL(url).pathname;
+        const historyUrl = responseUrl.href;
+        if (push) {
+            history.replaceState({ ...history.state, scrollX: scrollX, scrollY: scrollY }, "");
+            history.pushState({}, "", historyUrl);
+        } else if (historyUrl !== window.location.href) {
+            history.replaceState(history.state, "", historyUrl);
+        }
+        const currentUrl = responseUrl;
+        currentPage = currentUrl.pathname + currentUrl.search;
+        if (skipLink) skipLink.setAttribute("href", "#wiki-content");
 
         content.classList.remove("wiki-fading");
 
@@ -119,13 +155,25 @@
 
         if (window.mermaid && typeof window.mermaid.run === "function") {
             try {
-                window.mermaid.run({ querySelector: "#wiki-content .mermaid" });
+                await Promise.resolve(
+                    window.mermaid.run({ querySelector: "#wiki-content .mermaid" }),
+                );
             } catch (err) {
                 /* mermaid render failure is non-fatal */
             }
         }
+        if (token !== navToken) return;
 
-        applyScroll(url);
+        const focusTarget = heading || content;
+        focusTarget.setAttribute("tabindex", "-1");
+        focusTarget.focus({ preventScroll: true });
+        if (status) status.textContent = `${document.title} 已加载`;
+
+        if (savedPosition && !currentUrl.hash) {
+            window.scrollTo(savedPosition.scrollX || 0, savedPosition.scrollY || 0);
+        } else {
+            applyScroll(historyUrl);
+        }
         finishProgress();
         currentController = null;
     }
@@ -152,7 +200,10 @@
 
         // Same-page links (incl. pure #hash) are left to the browser /
         // the inline hash-scroll handler.
-        if (url.pathname === window.location.pathname) return;
+        if (
+            url.pathname === window.location.pathname &&
+            url.search === window.location.search
+        ) return;
 
         // Skip links that point to static asset files (not wiki pages).
         // Page names may legitimately contain dots (e.g. "NixOSCN.org"),
@@ -162,14 +213,15 @@
         }
 
         e.preventDefault();
-        navigate(url.href, true);
+        navigate(url.href, true, null);
     });
 
-    window.addEventListener("popstate", function () {
-        if (window.location.pathname === currentPath) {
-            applyScroll(window.location.href);
+    window.addEventListener("popstate", function (event) {
+        const page = window.location.pathname + window.location.search;
+        if (page === currentPage) {
+            if (window.location.hash) applyScroll(window.location.href);
             return;
         }
-        navigate(window.location.href, false);
+        navigate(window.location.href, false, event.state);
     });
 })();

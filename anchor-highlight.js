@@ -12,6 +12,12 @@
   }
   updateBlendMode();
   darkMQ.addEventListener("change", updateBlendMode);
+  reduceMotionMQ.addEventListener("change", function () {
+    if (!reduceMotionMQ.matches) return;
+    if (hlRAF) cancelAnimationFrame(hlRAF);
+    hlRAF = null;
+    hlCtx.clearRect(0, 0, hlCanvas.width, hlCanvas.height);
+  });
   function resizeHlCanvas() {
     hlCanvas.width = window.innerWidth;
     hlCanvas.height = window.innerHeight;
@@ -84,6 +90,8 @@
   }
 
   function finishProgrammaticScroll() {
+    window.clearTimeout(scrollEndTimer);
+    scrollEndTimer = null;
     window.removeEventListener("scroll", resetProgrammaticScrollTimer);
     setProgrammaticScroll(false);
   }
@@ -95,7 +103,12 @@
 
   function scrollToHash(hash) {
     if (!hash || hash === "#") return;
-    const id = decodeURIComponent(hash.slice(1));
+    let id;
+    try {
+      id = decodeURIComponent(hash.slice(1));
+    } catch (_err) {
+      return;
+    }
     const target = document.getElementById(id);
     if (!target) return;
 
@@ -105,12 +118,16 @@
         window.innerHeight * 0.25,
     );
 
+    if (scrollEndTimer) finishProgrammaticScroll();
     setProgrammaticScroll(true);
     window.addEventListener("scroll", resetProgrammaticScrollTimer, {
       passive: true,
     });
     resetProgrammaticScrollTimer();
-    window.scrollTo({ top, behavior: "smooth" });
+    window.scrollTo({
+      top,
+      behavior: reduceMotionMQ.matches ? "auto" : "smooth",
+    });
     highlightTarget(target);
   }
 
@@ -120,28 +137,33 @@
   };
 
   document.addEventListener("click", function (e) {
+    if (
+      e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey ||
+      e.shiftKey || e.altKey
+    ) return;
     const link = e.target.closest("a");
     if (!link) return;
+    if (link.target && link.target !== "" && link.target !== "_self") return;
+    if (link.hasAttribute("download")) return;
     const raw = link.getAttribute("href");
     if (!raw) return;
 
-    let hash = null;
-    if (raw.startsWith("#")) {
-      if (raw === "#") return;
-      hash = raw;
-    } else {
-      const hashIdx = raw.indexOf("#");
-      if (hashIdx < 0) return;
-      const tmp = document.createElement("a");
-      tmp.href = raw;
-      if (tmp.pathname !== location.pathname) return;
-      hash = "#" + raw.substring(hashIdx + 1);
+    let url;
+    try {
+      url = new URL(raw, location.href);
+    } catch (_err) {
+      return;
     }
-    if (!hash) return;
+    if (
+      !url.hash || url.hash === "#" ||
+      url.origin !== location.origin ||
+      url.pathname !== location.pathname ||
+      url.search !== location.search
+    ) return;
 
     e.preventDefault();
-    history.pushState(null, null, hash);
-    scrollToHash(hash);
+    history.pushState(null, "", url.hash);
+    scrollToHash(url.hash);
   });
 
   if (location.hash) {

@@ -4,40 +4,40 @@
 
 ## 快速开始
 
-安装依赖：
+进入 Deno 开发环境：
 
 ```sh
-npm ci
+nix develop
 ```
 
 初始化一个新站点的首页和首个词条：
 
 ```sh
-npm run init-site -- --title "Example Wiki" --origin "https://wiki.example.com" --entry "Getting Started"
+deno task init-site --title "Example Wiki" --origin "https://wiki.example.com" --entry "Getting Started"
 ```
 
 脚本默认不会覆盖已有文件。需要重写脚手架文件时显式加 `--force`：
 
 ```sh
-npm run init-site -- --title "Example Wiki" --origin "https://wiki.example.com" --entry "Getting Started" --force
+deno task init-site --title "Example Wiki" --origin "https://wiki.example.com" --entry "Getting Started" --force
 ```
 
 本地构建：
 
 ```sh
-npm run build
+deno task build
 ```
 
 本地开发预览：
 
 ```sh
-npm run dev
+deno task dev
 ```
 
 使用 Nix 开发环境时：
 
 ```sh
-nix develop --command bash -c 'npm run build'
+nix develop --command bash -c 'deno task build'
 ```
 
 ## 站点参数
@@ -80,7 +80,7 @@ gh variable set WIKI_PUBLISH_BRANCH --body "pages"
 
 | 路径 | 要做什么 | 对应脚本或命令 |
 | --- | --- | --- |
-| `index.md` | 改成新站首页内容。需要词条列表时保留 `{{entries}}`。 | `npm run init-site -- --title "Example Wiki" --origin "https://wiki.example.com" --force` |
+| `index.md` | 改成新站首页内容。需要词条列表时保留 `{{entries}}`。 | `deno task init-site --title "Example Wiki" --origin "https://wiki.example.com" --force` |
 | `entries/` | 删除示例词条，添加新站词条。每个词条目录用 `index.md` 作为页面入口。 | `mkdir -p entries/Example && $EDITOR entries/Example/index.md` |
 | `entries/**/FOLD` | 需要首页折叠某个词条树时创建空文件。 | `touch entries/Example/FOLD` |
 | `entries/**/HIDE` | 需要从词条列表隐藏某个词条树时创建空文件。 | `touch entries/Example/HIDE` |
@@ -92,7 +92,7 @@ gh variable set WIKI_PUBLISH_BRANCH --body "pages"
 | `README.md` | 改成新仓库的项目说明。 | `$EDITOR README.md` |
 | `LICENSE-for-content` | 内容许可证变化时修改。 | `$EDITOR LICENSE-for-content` |
 | `LICENSE-for-code` | 代码许可证变化时修改。 | `$EDITOR LICENSE-for-code` |
-| `package.json` / `package-lock.json` | 需要改包名或 npm 脚本时修改。 | `npm install` 或手动编辑后运行 `npm install --package-lock-only` |
+| `deno.json` / `deno.lock` | 需要改任务或依赖时修改。 | `deno task build` |
 | `flake.nix` / `flake.lock` | 需要改 Nix shell 描述或依赖时修改。 | `$EDITOR flake.nix && nix flake update` |
 | `.github/workflows/pages.yml` | 需要改 Pages 发布流程时修改。站点参数优先用 GitHub Variables。 | `$EDITOR .github/workflows/pages.yml` |
 | `.github/workflows/pr-build.yml` | 需要改 PR 构建检查时修改。 | `$EDITOR .github/workflows/pr-build.yml` |
@@ -104,19 +104,19 @@ gh variable set WIKI_PUBLISH_BRANCH --body "pages"
 创建或补齐新站点初始内容：
 
 ```sh
-npm run init-site -- --title "Example Wiki" --origin "https://wiki.example.com" --entry "Getting Started"
+deno task init-site --title "Example Wiki" --origin "https://wiki.example.com" --entry "Getting Started"
 ```
 
 构建输出：
 
 ```sh
-npm run build
+deno task build
 ```
 
 开发预览：
 
 ```sh
-npm run dev
+deno task dev
 ```
 
 ## 升级程序但保留词条
@@ -140,37 +140,37 @@ git fetch upstream
 查看升级会修改哪些程序文件：
 
 ```sh
-npm run upgrade-program -- --from upstream/main
+deno task upgrade-program --from upstream/main
 ```
 
 确认后应用：
 
 ```sh
-npm run upgrade-program -- --from upstream/main --apply
+deno task upgrade-program --from upstream/main --apply
 ```
 
 也可以从本地目录升级：
 
 ```sh
-npm run upgrade-program -- --from ../nixos-wiki --apply
+deno task upgrade-program --from ../nixos-wiki --apply
 ```
 
 查看脚本会同步哪些程序文件、哪些路径会保留：
 
 ```sh
-npm run upgrade-program -- --list
+deno task upgrade-program --list
 ```
 
 清空输出后重建：
 
 ```sh
 rm -rf out
-npm run build
+deno task build
 ```
 
 检查当前站点默认输出是否仍能构建：
 
 ```sh
-npm run build
+deno task build
 test -f out/index.html
 ```

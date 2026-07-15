@@ -12,7 +12,7 @@ into its global cache on first run.
 deno task build     # generate out/
 deno task dev       # rebuild on change + auto-reload the browser (http://localhost:8000)
 deno task serve     # serve out/ at http://localhost:8000
-deno task test      # build first, then verify out/ matches the golden baseline
+deno task test      # build, then verify out/ matches the golden baseline
 deno task lint      # lint scripts/ and test/
 rm -rf out && deno task build   # clean rebuild
 ```

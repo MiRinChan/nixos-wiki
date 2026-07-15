@@ -45,7 +45,7 @@
                 echo "  deno task build  # generate out/"
                 echo "  deno task dev    # rebuild on change + live-reload browser"
                 echo "  deno task serve  # serve out/ on http://localhost:8000 (no reload)"
-                echo "  deno task test   # verify out/ matches golden baseline"
+                echo "  deno task test   # build and verify out/ matches golden baseline"
                 ;;
             esac
           '';

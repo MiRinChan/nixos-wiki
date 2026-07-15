@@ -1,6 +1,8 @@
 import { promises as fs } from "node:fs";
+import { Buffer } from "node:buffer";
 import { spawn } from "node:child_process";
 import path from "node:path";
+import process from "node:process";
 import { fileURLToPath } from "node:url";
 
 const rootDir = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
@@ -9,17 +11,27 @@ const programFiles = [
   ".github/workflows/pages.yml",
   ".github/workflows/pr-build.yml",
   "WIKI-SETUP.md",
+  "deno.json",
+  "deno.lock",
   "flake.lock",
   "flake.nix",
-  "package-lock.json",
-  "package.json",
+  "anchor-highlight.js",
+  "nav.js",
   "scripts/build.mjs",
   "scripts/init-site.mjs",
+  "scripts/lib/config.mjs",
+  "scripts/lib/template-engine.mjs",
   "scripts/upgrade-program.mjs",
   "styles-base.css",
   "styles-code-dark.css",
   "styles-code-light.css",
   "template.html",
+  "test/build_test.mjs",
+  "test/compare-out.mjs",
+  "test/golden.manifest.json",
+  "test/manifest.mjs",
+  "test/update-golden.mjs",
+  "test/template-engine_test.mjs",
   "toc.js",
 ];
 
@@ -34,9 +46,9 @@ const preservedPaths = [
 
 function usage() {
   return `Usage:
-  npm run upgrade-program -- --from upstream/main
-  npm run upgrade-program -- --from upstream/main --apply
-  npm run upgrade-program -- --from ../nixos-wiki --apply
+  deno task upgrade-program --from upstream/main
+  deno task upgrade-program --from upstream/main --apply
+  deno task upgrade-program --from ../nixos-wiki --apply
 
 Options:
   --from   Git ref or directory to copy program files from. Required.
@@ -169,7 +181,9 @@ async function writeProgramFile(file, content) {
 }
 
 async function main() {
-  const options = parseArgs(process.argv.slice(2));
+  const args = process.argv.slice(2);
+  if (args[0] === "--") args.shift();
+  const options = parseArgs(args);
 
   if (options.help) {
     console.log(usage());

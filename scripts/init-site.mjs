@@ -1,12 +1,13 @@
 import { promises as fs } from "node:fs";
 import path from "node:path";
+import process from "node:process";
 import { fileURLToPath } from "node:url";
 
 const rootDir = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 
 function usage() {
   return `Usage:
-  npm run init-site -- --title "Example Wiki" --origin "https://wiki.example.com" [--entry "Getting Started"] [--force]
+  deno task init-site --title "Example Wiki" --origin "https://wiki.example.com" [--entry "Getting Started"] [--force]
 
 Options:
   --title   Site title for generated starter content.
@@ -99,7 +100,9 @@ function githubVariablesExample(options) {
 }
 
 async function main() {
-  const options = parseArgs(process.argv.slice(2));
+  const args = process.argv.slice(2);
+  if (args[0] === "--") args.shift();
+  const options = parseArgs(args);
 
   if (options.help) {
     console.log(usage());

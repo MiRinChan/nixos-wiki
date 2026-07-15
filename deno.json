@@ -1,11 +1,11 @@
 {
   "tasks": {
     "build": "deno run --allow-read --allow-write --allow-env --allow-sys scripts/build.mjs",
-    "dev": "WIKI_SITE_ORIGIN=http://localhost:8000 deno run --allow-read --allow-write --allow-env --allow-sys --allow-net scripts/dev-server.mjs",
+    "dev": "deno run --allow-read --allow-write --allow-env --allow-sys --allow-net scripts/dev-server.mjs",
     "serve": "deno run --allow-read --allow-net --allow-sys jsr:@std/http@1/file-server --port 8000 out",
     "init-site": "deno run --allow-read --allow-write --allow-env --allow-sys scripts/init-site.mjs",
-    "upgrade-program": "deno run --allow-read --allow-write --allow-env --allow-sys scripts/upgrade-program.mjs",
-    "test": "deno test --allow-read --allow-write --allow-env --allow-sys test/",
+    "upgrade-program": "deno run --allow-read --allow-write --allow-env --allow-sys --allow-run=git scripts/upgrade-program.mjs",
+    "test": "deno task build && deno test --allow-read --allow-write --allow-env --allow-sys test/",
     "lint": "deno lint",
     "fmt": "deno fmt"
   },

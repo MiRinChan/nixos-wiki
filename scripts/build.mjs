@@ -16,6 +16,7 @@
 
 import { promises as fs } from "node:fs";
 import path from "node:path";
+import process from "node:process";
 import { marked } from "marked";
 import footnote from "marked-footnote";
 import alert from "marked-alert";
@@ -33,12 +34,12 @@ import {
   templatePath,
 } from "./lib/config.mjs";
 import {
-  describeContext,
   expandMarkdownTemplates,
   makeRenderContext,
   readRequiredFile,
 } from "./lib/template-engine.mjs";
 
+let buildOutDir = outDir;
 
 marked.use(footnote({ description: "脚注" }));
 marked.use(alert({
@@ -76,17 +77,29 @@ marked.use({
   }],
 });
 
+let headingIds = null;
+
 marked.use({
   renderer: {
     heading({ tokens, depth }) {
       const text = this.parser.parseInline(tokens);
       // Extract explicit id from inline HTML like <a id="foo"></a>
       const explicitId = text.match(/<[^>]*?\bid\s*=\s*"([^"]*)"[^>]*>/i)?.[1];
-      const id = explicitId || text
+      const baseId = explicitId || text
         .replace(/<[^>]*>/g, "")
         .toLowerCase()
         .replace(/[^\w\u4e00-\u9fff\u3400-\u4dbf\uf900-\ufaff-]+/g, "-")
-        .replace(/^-+|-+$/g, "");
+        .replace(/^-+|-+$/g, "") || "section";
+      let id = baseId;
+
+      if (explicitId && headingIds?.has(id)) {
+        throw new Error(`重复的显式标题 ID：${id}`);
+      }
+      if (!explicitId && headingIds) {
+        let suffix = 2;
+        while (headingIds.has(id)) id = `${baseId}-${suffix++}`;
+      }
+      headingIds?.add(id);
       return `<h${depth} id="${id}">${text}</h${depth}>`;
     },
     code({ text, lang: infostring }) {
@@ -129,6 +142,15 @@ marked.use({
     }
   }
 });
+
+export function renderMarkdown(markdown) {
+  headingIds = new Set();
+  try {
+    return marked.parse(markdown);
+  } finally {
+    headingIds = null;
+  }
+}
 
 function buildEditUrl(sourcePath) {
   if (!siteConfig.editUrlTemplate) {
@@ -183,6 +205,7 @@ function buildFooterHtml(editUrl) {
 // strip tags and entities, collapse whitespace, cap at ~150 chars.
 function extractDescription(html) {
   const text = String(html)
+    .replace(/<(script|style)\b[^>]*>[\s\S]*?<\/\1\s*>/gi, " ")
     .replace(/<[^>]*>/g, " ")
     .replace(/&[a-z]+;|&#\d+;/gi, " ")
     .replace(/\s+/g, " ")
@@ -194,6 +217,7 @@ function extractDescription(html) {
 function renderPage(template, title, content, editUrl, pageSegments = [], assetPrefix = '', heading = escapeHtml(title), entryTopLevelSegments = new Set()) {
   const description = extractDescription(content) || siteConfig.siteTitle;
   const canonicalUrl = pageUrlForSegments(siteConfig.siteOrigin, pageSegments);
+  const toc = buildTocHtml(content, pageSegments);
   const page = template
     .replaceAll("{{html_lang}}", escapeHtml(siteConfig.htmlLang))
     .replaceAll("{{title}}", escapeHtml(title))
@@ -202,6 +226,9 @@ function renderPage(template, title, content, editUrl, pageSegments = [], assetP
     .replaceAll("{{site_name}}", escapeHtml(siteConfig.siteTitle))
     .replaceAll("{{site_link}}", buildSiteLink())
     .replaceAll("{{heading}}", heading)
+    .replaceAll("{{toc}}", toc.html)
+    .replaceAll("{{toc_hidden}}", toc.hasToc ? "" : " hidden")
+    .replaceAll("{{has_toc}}", toc.hasToc ? "has-toc" : "")
     .replaceAll("{{favicon_link}}", buildFaviconLink(assetPrefix))
     .replaceAll("{{content}}", content)
     .replaceAll("{{footer_html}}", buildFooterHtml(editUrl))
@@ -241,36 +268,39 @@ function isAbsoluteOrSpecialUrl(value) {
 
 function parseCategories(markdown) {
   const categories = [];
-  const cleanMarkdown = markdown.replace(/^\[\[Category:([^\]]+)\]\]\s*$/gm, (_match, name) => {
-    const cat = name.trim();
-    // Category names become path segments under out/<prefix>/Category:<name>/;
-    // reject separators and traversal so a name can't escape the output dir.
+  let inFence = false;
+  let fenceMarker = "";
+  let fenceSize = 0;
+  const lines = markdown.match(/[^\n]*\n|[^\n]+/g) || [""];
+
+  const cleanMarkdown = lines.map((line) => {
+    const fenceMatch = line.match(/^ {0,3}(`{3,}|~{3,})/);
+    if (!inFence && fenceMatch) {
+      inFence = true;
+      fenceMarker = fenceMatch[1][0];
+      fenceSize = fenceMatch[1].length;
+      return line;
+    }
+
+    if (inFence) {
+      const closingMatch = line.match(/^ {0,3}(`{3,}|~{3,})[ \t]*(?:\r?\n)?$/);
+      if (closingMatch && closingMatch[1][0] === fenceMarker && closingMatch[1].length >= fenceSize) {
+        inFence = false;
+      }
+      return line;
+    }
+
+    const match = line.match(/^\[\[Category:([^\]]+)\]\]\s*(?:\r?\n)?$/);
+    if (!match) return line;
+
+    const cat = match[1].trim();
     if (/[\\/]/.test(cat) || cat.includes("..")) {
       throw new Error(`非法分类名称（不能包含 / \\ 或 ..）：${cat}`);
     }
     categories.push(cat);
-    return '';
-  });
+    return line.endsWith("\n") ? "\n" : "";
+  }).join("");
   return { categories, cleanMarkdown };
-}
-
-function checkDuplicateHeadings(html, context) {
-  const headingIdPattern = /<(h[2-6])\b[^>]*?\bid\s*=\s*"([^"]*)"[^>]*>/gi;
-  const ids = new Map();
-  let match;
-
-  while ((match = headingIdPattern.exec(html)) !== null) {
-    const id = match[2];
-    const tag = match[1];
-    if (ids.has(id)) {
-      const prev = ids.get(id);
-      console.warn(
-        `WARNING: ${describeContext(context)}: 重复的标题 ID "${id}"（${prev} 和 ${tag}）`,
-      );
-    } else {
-      ids.set(id, tag);
-    }
-  }
 }
 
 function unescapeAttributeUrl(value) {
@@ -320,6 +350,17 @@ function absolutizeUrl(value, siteOrigin, pageSegments, entryTopLevelSegments = 
   }
 
   try {
+    if (!isAbsoluteOrSpecialUrl(trimmed) && !trimmed.startsWith("/") && !trimmed.startsWith("./") && !trimmed.startsWith("../")) {
+      const firstSegment = trimmed.split(/[/?#]/, 1)[0];
+      try {
+        if (entryTopLevelSegments.has(decodeURIComponent(firstSegment))) {
+          return new URL(`/${siteConfig.entryUrlPrefix}/${unescapeAttributeUrl(trimmed)}`, `${siteOrigin}/`).href;
+        }
+      } catch {
+        // Fall through to normal URL resolution for malformed input.
+      }
+    }
+
     const url = isAbsoluteOrSpecialUrl(trimmed)
       ? new URL(unescapeAttributeUrl(trimmed), siteOrigin)
       : new URL(unescapeAttributeUrl(trimmed), pageUrlForSegments(siteOrigin, pageSegments));
@@ -331,19 +372,26 @@ function absolutizeUrl(value, siteOrigin, pageSegments, entryTopLevelSegments = 
 }
 
 function absolutizeSrcset(value, siteOrigin, pageSegments, entryTopLevelSegments) {
-  return String(value)
-    .split(",")
-    .map((candidate) => {
-      const trimmed = candidate.trim();
-      const [url, ...descriptors] = trimmed.split(/\s+/);
+  const input = String(value);
+  const candidates = [];
+  let start = 0;
+  let inDataUrl = /^\s*data:/i.test(input);
 
-      if (!url) {
-        return candidate;
-      }
+  for (let index = 0; index < input.length; index += 1) {
+    if (inDataUrl && /\s/.test(input[index])) inDataUrl = false;
+    if (input[index] !== "," || inDataUrl) continue;
+    candidates.push(input.slice(start, index));
+    start = index + 1;
+    inDataUrl = /^\s*data:/i.test(input.slice(start));
+  }
+  candidates.push(input.slice(start));
 
-      return [absolutizeUrl(url, siteOrigin, pageSegments, entryTopLevelSegments), ...descriptors].join(" ");
-    })
-    .join(", ");
+  return candidates.map((candidate) => {
+    const trimmed = candidate.trim();
+    const [url, ...descriptors] = trimmed.split(/\s+/);
+    if (!url) return candidate;
+    return [absolutizeUrl(url, siteOrigin, pageSegments, entryTopLevelSegments), ...descriptors].join(" ");
+  }).join(", ");
 }
 
 function absolutizeCssUrls(html, siteOrigin, pageSegments, entryTopLevelSegments) {
@@ -353,8 +401,24 @@ function absolutizeCssUrls(html, siteOrigin, pageSegments, entryTopLevelSegments
   });
 }
 
+function rewriteCssContexts(html, siteOrigin, pageSegments, entryTopLevelSegments) {
+  return html
+    .replace(/\bstyle\s*=\s*(["'])(.*?)\1/gis, (_match, quote, value) => {
+      const rewritten = absolutizeCssUrls(value, siteOrigin, pageSegments, entryTopLevelSegments);
+      return `style=${quote}${rewritten}${quote}`;
+    })
+    .replace(/(<style\b[^>]*>)([\s\S]*?)(<\/style\s*>)/gi, (_match, open, value, close) => {
+      return `${open}${absolutizeCssUrls(value, siteOrigin, pageSegments, entryTopLevelSegments)}${close}`;
+    });
+}
+
 function absolutizeHtmlUrls(html, siteOrigin, pageSegments, entryTopLevelSegments) {
-  const withAttributes = html.replace(
+  const protectedBlocks = [];
+  const tokenized = html.replace(/<!--[\s\S]*?-->|<script\b[^>]*>[\s\S]*?<\/script\s*>/gi, (block) => {
+    const index = protectedBlocks.push(block) - 1;
+    return `WIKI-PROTECTED-BLOCK-${index}-END`;
+  });
+  const withAttributes = tokenized.replace(
     /\b(href|src|poster|action)\s*=\s*(["'])(.*?)\2/gis,
     (_match, attribute, quote, value) => {
       const absolute = escapeHtml(absolutizeUrl(value, siteOrigin, pageSegments, entryTopLevelSegments));
@@ -370,7 +434,8 @@ function absolutizeHtmlUrls(html, siteOrigin, pageSegments, entryTopLevelSegment
     },
   );
 
-  return absolutizeCssUrls(withSrcsets, siteOrigin, pageSegments, entryTopLevelSegments);
+  return rewriteCssContexts(withSrcsets, siteOrigin, pageSegments, entryTopLevelSegments)
+    .replace(/WIKI-PROTECTED-BLOCK-(\d+)-END/g, (_match, index) => protectedBlocks[Number(index)]);
 }
 
 async function listEntries() {
@@ -452,6 +517,61 @@ function buildEntryHeading(entry) {
   return items.join("<span aria-hidden=\"true\"> / </span>");
 }
 
+function decodeHtmlText(value) {
+  return value
+    .replace(/<[^>]*>/g, "")
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&amp;/gi, "&")
+    .replace(/&lt;/gi, "<")
+    .replace(/&gt;/gi, ">")
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;|&apos;/gi, "'")
+    .replace(/&#(\d+);/g, (_match, code) => String.fromCodePoint(Number(code)))
+    .replace(/&#x([\da-f]+);/gi, (_match, code) => String.fromCodePoint(parseInt(code, 16)));
+}
+
+function buildTocHtml(content, pageSegments) {
+  if (pageSegments.length === 0) return { html: "", hasToc: false };
+
+  const headings = [];
+  const headingPattern = /<h([2-6])\b[^>]*\bid="([^"]*)"[^>]*>([\s\S]*?)<\/h\1>/gi;
+  let match;
+  while ((match = headingPattern.exec(content)) !== null) {
+    headings.push({
+      level: Number(match[1]),
+      id: match[2],
+      text: escapeHtml(decodeHtmlText(match[3]).trim()),
+      children: [],
+    });
+  }
+
+  if (headings.length === 0) return { html: "", hasToc: false };
+
+  const root = { level: 1, children: [] };
+  const stack = [root];
+  for (const heading of headings) {
+    while (stack.at(-1).level >= heading.level) stack.pop();
+    stack.at(-1).children.push(heading);
+    stack.push(heading);
+  }
+
+  function renderNodes(nodes) {
+    return nodes.map((node) => {
+      const hasChildren = node.children.length > 0;
+      const link = `<a href="#${escapeHtml(node.id)}">${node.text}</a>`;
+      if (!hasChildren) return `<li>${link}</li>`;
+
+      return `<li>${link}<details class="toc-branch" open><summary>${node.text} 的子目录</summary><ul>${renderNodes(node.children)}</ul></details></li>`;
+    }).join("\n");
+  }
+
+  const tree = `<ul id="toc-tree">${renderNodes(root.children)}</ul>`;
+  return {
+    html: `<details class="toc-container" open><summary>目录</summary>${tree}</details>`,
+    hasToc: true,
+  };
+}
+
 function* walkEntries(entries) {
   for (const entry of entries) {
     yield entry;
@@ -503,25 +623,22 @@ async function renderHome(entries) {
   const expandedMarkdown = await expandMarkdownTemplates(markdown,
     makeRenderContext(homePath, "index.md", buildEntryList(entries, [], { includeDescendants: true })));
 
-  const html = marked.parse(expandedMarkdown);
-  checkDuplicateHeadings(html, {
-    sourcePath: homePath,
-    sourceName: "index.md",
-  });
-  return html;
+  return renderMarkdown(expandedMarkdown);
 }
 
 async function renderEntry(entry) {
   const rawMarkdown = entry.hasIndex ? await readRequiredFile(entry.sourcePath, "条目内容文件") : "{{entries}}";
-  const { categories, cleanMarkdown } = entry.hasIndex ? parseCategories(rawMarkdown) : { categories: [], cleanMarkdown: rawMarkdown };
 
   const sourceName = entry.hasIndex
     ? path.relative(rootDir, entry.sourcePath)
     : `entries/${entry.segments.join("/")}/index.md`;
-  const expandedMarkdown = await expandMarkdownTemplates(cleanMarkdown,
+  const expandedMarkdown = await expandMarkdownTemplates(rawMarkdown,
     makeRenderContext(entry.sourcePath, sourceName, buildEntryList(entry.children, entry.segments)));
+  const { categories, cleanMarkdown } = entry.hasIndex
+    ? parseCategories(expandedMarkdown)
+    : { categories: [], cleanMarkdown: expandedMarkdown };
 
-  let html = marked.parse(expandedMarkdown);
+  let html = renderMarkdown(cleanMarkdown);
 
   if (categories.length > 0) {
     const links = categories.map((cat) => {
@@ -531,7 +648,6 @@ async function renderEntry(entry) {
     html += `\n<div class="category-links">\n<hr>\n<span>分类：${links}</span>\n</div>`;
   }
 
-  checkDuplicateHeadings(html, { sourcePath: entry.sourcePath, sourceName });
   return { html, categories };
 }
 
@@ -599,10 +715,10 @@ async function copyStaticAssets() {
   await Promise.all(
     dirents
       .filter((dirent) => dirent.isFile() && staticExtensions.has(path.extname(dirent.name).toLowerCase()))
-      .map((dirent) => fs.copyFile(path.join(rootDir, dirent.name), path.join(outDir, dirent.name))),
+      .map((dirent) => fs.copyFile(path.join(rootDir, dirent.name), path.join(buildOutDir, dirent.name))),
   );
 
-  await copyEntryStaticAssets(entriesDir, path.join(outDir, siteConfig.entryUrlPrefix));
+  await copyEntryStaticAssets(entriesDir, path.join(buildOutDir, siteConfig.entryUrlPrefix));
 }
 
 async function copyEntryStaticAssets(sourceDir, targetDir) {
@@ -633,7 +749,7 @@ async function writeCname() {
     return;
   }
 
-  await fs.writeFile(path.join(outDir, "CNAME"), `${siteConfig.cname}\n`, "utf8");
+  await fs.writeFile(path.join(buildOutDir, "CNAME"), `${siteConfig.cname}\n`, "utf8");
 }
 
 // Render every entry page and, as a side effect, collect the category → entry
@@ -645,7 +761,7 @@ async function renderAllEntries(template, entries, entryTopLevelSegments) {
     const { html, categories } = await renderEntry(entry);
     const sourcePath = `entries/${entry.segments.join("/")}/index.md`;
     const page = renderPage(template, entry.title, html, buildEditUrl(sourcePath), entry.segments, assetPrefixForEntry(entry), buildEntryHeading(entry), entryTopLevelSegments);
-    const entryOutDir = path.join(outDir, siteConfig.entryUrlPrefix, ...entry.segments);
+    const entryOutDir = path.join(buildOutDir, siteConfig.entryUrlPrefix, ...entry.segments);
     await fs.mkdir(entryOutDir, { recursive: true });
     await fs.writeFile(path.join(entryOutDir, "index.html"), page, "utf8");
 
@@ -662,7 +778,7 @@ async function renderAllEntries(template, entries, entryTopLevelSegments) {
 
 async function renderHomePage(template, entries, entryTopLevelSegments) {
   const home = renderPage(template, siteConfig.siteTitle, await renderHome(entries), buildEditUrl("index.md"), [], '', escapeHtml(siteConfig.siteTitle), entryTopLevelSegments);
-  await fs.writeFile(path.join(outDir, "index.html"), home, "utf8");
+  await fs.writeFile(path.join(buildOutDir, "index.html"), home, "utf8");
 }
 
 // Read category description files to discover parent → child relationships, and
@@ -676,7 +792,9 @@ async function collectCategoryRelations(segmentsByCategory, categoriesDir) {
     const catIndexPath = path.join(categoriesDir, categoryName, "index.md");
     if (await pathExists(catIndexPath)) {
       const catMarkdown = await fs.readFile(catIndexPath, "utf8");
-      const parsed = parseCategories(catMarkdown);
+      const expanded = await expandMarkdownTemplates(catMarkdown,
+        makeRenderContext(catIndexPath, `categories/${categoryName}/index.md`));
+      const parsed = parseCategories(expanded);
       catMarkdownCache.set(catIndexPath, parsed);
       for (const parentCat of parsed.categories) {
         if (!childCategoriesByParent.has(parentCat)) {
@@ -701,9 +819,7 @@ async function renderCategoryPages(template, categoryData, entryIndex, categorie
     let introHtml = '';
     if (catMarkdownCache.has(catIndexPath)) {
       const { cleanMarkdown } = catMarkdownCache.get(catIndexPath);
-      const expanded = await expandMarkdownTemplates(cleanMarkdown,
-        makeRenderContext(catIndexPath, `categories/${categoryName}/index.md`));
-      introHtml = marked.parse(expanded);
+      introHtml = renderMarkdown(cleanMarkdown);
     }
 
     const listingHtml = buildCategoryEntryList(segmentsByCategory, childCategoriesByParent, entryIndex, categoryName);
@@ -713,7 +829,7 @@ async function renderCategoryPages(template, categoryData, entryIndex, categorie
     const catSegments = categorySegments(categoryName);
     const page = renderPage(template, `分类：${categoryName}`, content, '', catSegments, assetPrefixForSpecialPage(), heading, entryTopLevelSegments);
 
-    const catOutDir = path.join(outDir, siteConfig.entryUrlPrefix, CATEGORY_NS + categoryName);
+    const catOutDir = path.join(buildOutDir, siteConfig.entryUrlPrefix, CATEGORY_NS + categoryName);
     await fs.mkdir(catOutDir, { recursive: true });
     await fs.writeFile(path.join(catOutDir, "index.html"), page, "utf8");
   }
@@ -731,7 +847,7 @@ async function renderSpecialCategoriesPage(template, segmentsByCategory, entryIn
   const specialContent = `<p>本维基中共有 ${allCategoryNames.length} 个分类。</p>\n${renderLinkList(catItems)}`;
   const specialSegments = ["Special:Categories"];
   const specialPage = renderPage(template, '所有分类', specialContent, '', specialSegments, assetPrefixForSpecialPage(), '所有分类', entryTopLevelSegments);
-  const specialOutDir = path.join(outDir, siteConfig.entryUrlPrefix, "Special:Categories");
+  const specialOutDir = path.join(buildOutDir, siteConfig.entryUrlPrefix, "Special:Categories");
   await fs.mkdir(specialOutDir, { recursive: true });
   await fs.writeFile(path.join(specialOutDir, "index.html"), specialPage, "utf8");
 }
@@ -741,24 +857,43 @@ export async function build() {
   const entries = await listEntries();
   const entryTopLevelSegments = new Set(entries.map((entry) => entry.segments[0]));
   const categoriesDir = path.join(rootDir, "categories");
+  const stagingOutDir = `${outDir}.tmp`;
+  const previousOutDir = `${outDir}.previous`;
 
-  await fs.rm(outDir, { recursive: true, force: true });
-  await fs.mkdir(outDir, { recursive: true });
+  await fs.rm(stagingOutDir, { recursive: true, force: true });
+  await fs.rm(previousOutDir, { recursive: true, force: true });
+  await fs.mkdir(stagingOutDir, { recursive: true });
+  buildOutDir = stagingOutDir;
 
-  const segmentsByCategory = await renderAllEntries(template, entries, entryTopLevelSegments);
-  await renderHomePage(template, entries, entryTopLevelSegments);
+  try {
+    const segmentsByCategory = await renderAllEntries(template, entries, entryTopLevelSegments);
+    await renderHomePage(template, entries, entryTopLevelSegments);
 
-  const { childCategoriesByParent, catMarkdownCache } = await collectCategoryRelations(segmentsByCategory, categoriesDir);
+    const { childCategoriesByParent, catMarkdownCache } = await collectCategoryRelations(segmentsByCategory, categoriesDir);
 
-  const entryIndex = new Map();
-  for (const entry of walkEntries(entries)) {
-    entryIndex.set(entry.segments.join("\0"), entry);
+    const entryIndex = new Map();
+    for (const entry of walkEntries(entries)) {
+      entryIndex.set(entry.segments.join("\0"), entry);
+    }
+    await renderCategoryPages(template, { segmentsByCategory, childCategoriesByParent, catMarkdownCache }, entryIndex, categoriesDir, entryTopLevelSegments);
+    await renderSpecialCategoriesPage(template, segmentsByCategory, entryIndex, entryTopLevelSegments);
+
+    await copyStaticAssets();
+    await writeCname();
+    if (await pathExists(outDir)) await fs.rename(outDir, previousOutDir);
+    try {
+      await fs.rename(stagingOutDir, outDir);
+    } catch (error) {
+      if (await pathExists(previousOutDir)) await fs.rename(previousOutDir, outDir);
+      throw error;
+    }
+    await fs.rm(previousOutDir, { recursive: true, force: true });
+  } catch (error) {
+    await fs.rm(stagingOutDir, { recursive: true, force: true });
+    throw error;
+  } finally {
+    buildOutDir = outDir;
   }
-  await renderCategoryPages(template, { segmentsByCategory, childCategoriesByParent, catMarkdownCache }, entryIndex, categoriesDir, entryTopLevelSegments);
-  await renderSpecialCategoriesPage(template, segmentsByCategory, entryIndex, entryTopLevelSegments);
-
-  await copyStaticAssets();
-  await writeCname();
 }
 
 // Only auto-run when invoked directly (deno task build), not when imported

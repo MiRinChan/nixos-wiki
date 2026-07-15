@@ -83,6 +83,31 @@ Deno.test("expandMarkdownTemplates leaves fenced code and inline code untouched"
   assert.equal(await expandMarkdownTemplates(inline, makeBareContext()), inline);
 });
 
+Deno.test("expandMarkdownTemplates leaves raw script, style, and comments untouched", async () => {
+  const markdown = [
+    "<!-- {{MissingCommentTemplate}} -->",
+    "<script>",
+    "const value = '{{MissingScriptTemplate}}';",
+    "</script>",
+    "<style>",
+    ".example::after { content: '{{MissingStyleTemplate}}'; }",
+    "</style>",
+    "",
+  ].join("\n");
+
+  assert.equal(await expandMarkdownTemplates(markdown, makeBareContext()), markdown);
+});
+
+Deno.test("expandMarkdownTemplates still expands templates inside ordinary HTML containers", async () => {
+  const markdown = "<div>{{entries}}</div>\n";
+  const context = { ...makeBareContext(), entriesHtml: "<ul><li>entry</li></ul>" };
+
+  assert.equal(
+    await expandMarkdownTemplates(markdown, context),
+    "<div><ul><li>entry</li></ul></div>\n",
+  );
+});
+
 function makeBareContext() {
   return { sourcePath: "test.md", sourceName: "test.md", entriesHtml: "", depth: 0, callStack: [] };
 }

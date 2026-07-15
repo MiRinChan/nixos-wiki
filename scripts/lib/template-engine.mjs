@@ -173,42 +173,17 @@ export function parseTemplateParameter(inner, context) {
   };
 }
 
-const htmlBlockTags = new Set(
-  "address article aside base basefont blockquote body caption center col colgroup dd details dialog dir div dl dt fieldset figcaption figure footer form frame frameset h1 h2 h3 h4 h5 h6 head header hr html iframe legend li link main menu menuitem nav noframes ol optgroup option p param search section summary table tbody td tfoot th thead title tr track ul".split(" ")
-);
-
 function isIndentedCodeLine(line) {
   return /^(?: {4}|\t)/.test(line);
 }
 
-function startsHtmlBlock(line) {
-  const match = line.match(/^ {0,3}<([A-Za-z][A-Za-z0-9-]*)\b[^>]*>/);
-  return Boolean(match && htmlBlockTags.has(match[1].toLowerCase()));
-}
-
-function updateHtmlBlockDepth(line, currentDepth) {
-  const tagPattern = /<\s*(\/?)\s*([A-Za-z][A-Za-z0-9-]*)\b[^>]*>/g;
-  let depth = currentDepth;
-  let match;
-
-  while ((match = tagPattern.exec(line)) !== null) {
-    const tag = match[2].toLowerCase();
-
-    if (!htmlBlockTags.has(tag)) {
-      continue;
-    }
-
-    if (match[1]) {
-      depth = Math.max(0, depth - 1);
-      continue;
-    }
-
-    if (!/\/\s*>$/.test(match[0])) {
-      depth += 1;
-    }
-  }
-
-  return depth;
+function rawHtmlBlockEnd(line) {
+  if (/^ {0,3}<!--/.test(line)) return /-->/;
+  if (/^ {0,3}<\?/.test(line)) return /\?>/;
+  if (/^ {0,3}<!\[CDATA\[/.test(line)) return /\]\]>/;
+  if (/^ {0,3}<![A-Z]/.test(line)) return />/;
+  const match = line.match(/^ {0,3}<(script|pre|style|textarea)(?:\s|>|$)/i);
+  return match ? new RegExp(`<\\/${match[1]}\\s*>`, "i") : null;
 }
 
 export async function expandMarkdownTemplates(markdown, context) {
@@ -217,7 +192,7 @@ export async function expandMarkdownTemplates(markdown, context) {
   let inFence = false;
   let fenceMarker = "";
   let fenceSize = 0;
-  let htmlBlockDepth = 0;
+  let htmlBlockEnd = null;
   const lines = markdown.match(/[^\n]*\n|[^\n]+/g) || [""];
 
   async function flushChunk() {
@@ -230,6 +205,12 @@ export async function expandMarkdownTemplates(markdown, context) {
   }
 
   for (const line of lines) {
+    if (htmlBlockEnd) {
+      result += line;
+      if (htmlBlockEnd.test(line)) htmlBlockEnd = null;
+      continue;
+    }
+
     const fenceMatch = line.match(/^ {0,3}(`{3,}|~{3,})/);
 
     if (!inFence && fenceMatch) {
@@ -254,18 +235,21 @@ export async function expandMarkdownTemplates(markdown, context) {
       continue;
     }
 
-    const isHtmlBlockLine = htmlBlockDepth > 0 || startsHtmlBlock(line);
+    const rawHtmlEnd = rawHtmlBlockEnd(line);
+    if (rawHtmlEnd) {
+      await flushChunk();
+      result += line;
+      if (!rawHtmlEnd.test(line.slice(line.indexOf(">") + 1))) htmlBlockEnd = rawHtmlEnd;
+      continue;
+    }
 
-    if (isIndentedCodeLine(line) && !isHtmlBlockLine) {
+    if (isIndentedCodeLine(line)) {
       await flushChunk();
       result += line;
       continue;
     }
 
     chunk += line;
-    if (isHtmlBlockLine) {
-      htmlBlockDepth = updateHtmlBlockDepth(line, htmlBlockDepth);
-    }
   }
 
   await flushChunk();

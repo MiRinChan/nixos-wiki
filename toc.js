@@ -1,5 +1,5 @@
 /* TOC (Table of Contents) component — vanilla JS, no dependencies.
-// Scans rendered Markdown headings, builds a collapsible tree,
+// Wires the server-rendered tree, handles collapsible branches,
 // highlights the active section on scroll, and positions responsively.
 // buildToc() is re-runnable so AJAX navigation can rebuild the TOC.
 */
@@ -19,67 +19,11 @@
 
     // Per-build state, refreshed by buildToc()
     let currentObserver = null;
-    let collapseToggle = null;
-
-    function escapeHtml(str) {
-        return str
-            .replace(/&/g, "&amp;")
-            .replace(/</g, "&lt;")
-            .replace(/>/g, "&gt;")
-            .replace(/"/g, "&quot;");
-    }
-
-    // Build tree from flat heading list
-    function buildTree(headings) {
-        const root = { level: 1, children: [] };
-        const stack = [root];
-
-        for (const el of headings) {
-            const level = parseInt(el.tagName.charAt(1), 10);
-            const node = {
-                level,
-                id: el.id || "",
-                text: el.textContent.trim(),
-                children: [],
-            };
-
-            // Pop stack until we find a parent with level < current level
-            while (stack.length > 0 && stack[stack.length - 1].level >= level) {
-                stack.pop();
-            }
-
-            stack[stack.length - 1].children.push(node);
-            stack.push(node);
-        }
-
-        return root.children;
-    }
-
-    // Build the inner HTML for a <ul> level — one innerHTML write per subtree
-    // instead of one createElement+appendChild per node.
-    function buildTreeInner(nodes) {
-        let html = "";
-        for (const node of nodes) {
-            const hasChildren = node.children.length > 0;
-            html += `<li${hasChildren ? ' class="collapsed"' : ""}>`;
-            html += `<a href="#${escapeHtml(node.id)}">${escapeHtml(node.text)}</a>`;
-            if (hasChildren) {
-                html += `<button type="button" class="toc-toggle" aria-label="展开/折叠"></button>`;
-                html += `<ul>${buildTreeInner(node.children)}</ul>`;
-            }
-            html += "</li>";
-        }
-        return html;
-    }
+    let tocContainer = null;
 
     function setTocCollapsed(collapsed) {
-        if (!collapseToggle) return;
-        toc.collapsed = Boolean(collapsed);
-        toc.classList.toggle("toc-collapsed", mobileQuery.matches && toc.collapsed);
-        collapseToggle.setAttribute(
-            "aria-expanded",
-            String(!mobileQuery.matches || !toc.collapsed),
-        );
+        if (!tocContainer) return;
+        tocContainer.open = !collapsed;
     }
 
     // Single persistent listener — references the current build via module state
@@ -93,8 +37,7 @@
             currentObserver.disconnect();
             currentObserver = null;
         }
-        collapseToggle = null;
-        toc.innerHTML = "";
+        tocContainer = null;
         toc.hidden = false;
         document.body.classList.remove("has-toc");
 
@@ -104,13 +47,13 @@
             return;
         }
 
-        // Collect all h2–h6 headings in the page content.
+        // The server renders the TOC tree. The client only wires interactions.
         // The h1 page title is excluded by the selector.
         const headingElements = document.querySelectorAll(
             "#wiki-content h2, #wiki-content h3, #wiki-content h4, #wiki-content h5, #wiki-content h6",
         );
 
-        if (headingElements.length === 0) {
+        if (headingElements.length === 0 || !toc.querySelector("#toc-tree")) {
             toc.hidden = true;
             return;
         }
@@ -118,52 +61,43 @@
         // Signal that TOC is present so CSS can adjust layout
         document.body.classList.add("has-toc");
 
-        const tree = buildTree(headingElements);
+        tocContainer = toc.querySelector(".toc-container");
+        const treeElement = toc.querySelector("#toc-tree");
 
-        const header = document.createElement("div");
-        header.className = "toc-header";
+        if (!tocContainer) {
+            toc.hidden = true;
+            return;
+        }
 
-        collapseToggle = document.createElement("button");
-        collapseToggle.type = "button";
-        collapseToggle.className = "toc-collapse-toggle";
-        collapseToggle.textContent = "目录";
-        collapseToggle.setAttribute("aria-label", "展开/折叠目录");
-        header.appendChild(collapseToggle);
-
-        const treeElement = document.createElement("ul");
-        treeElement.id = "toc-tree";
-        treeElement.innerHTML = buildTreeInner(tree);
-
-        // One delegated listener for all toggle buttons instead of one per button
-        treeElement.addEventListener("click", function (e) {
-            const toggle = e.target.closest(".toc-toggle");
-            if (toggle) toggle.closest("li").classList.toggle("collapsed");
-        });
-
-        collapseToggle.setAttribute("aria-controls", treeElement.id);
-
-        toc.appendChild(header);
-        toc.appendChild(treeElement);
-
-        collapseToggle.addEventListener("click", function (e) {
-            e.stopPropagation();
-            setTocCollapsed(!toc.collapsed);
-        });
+        for (const branch of treeElement.querySelectorAll(".toc-branch")) {
+            branch.open = false;
+        }
 
         setTocCollapsed(mobileQuery.matches);
 
-        // Build a map from heading id → TOC <a> element
+        // Build a map from heading id → TOC <a> element. The build pipeline
+        // may absolutize fragment URLs, so read the hash through URL parsing.
         const linkMap = new Map();
         for (const a of toc.querySelectorAll("a")) {
-            const id = a.getAttribute("href")?.replace(/^#/, "");
-            if (id) linkMap.set(id, a);
+            const href = a.getAttribute("href");
+            if (!href) continue;
+            try {
+                const url = new URL(href, window.location.href);
+                if (url.origin === window.location.origin &&
+                    url.pathname === window.location.pathname &&
+                    url.search === window.location.search && url.hash) {
+                    linkMap.set(url.hash.slice(1), a);
+                }
+            } catch (_err) {
+                // Ignore malformed links in trusted page content.
+            }
         }
 
         // Expand ancestors of a given element
         function expandAncestors(el) {
             let current = el;
             while (current && current !== toc) {
-                if (current.tagName === "LI") current.classList.remove("collapsed");
+                if (current.matches?.("details.toc-branch")) current.open = true;
                 current = current.parentElement;
             }
         }
@@ -174,9 +108,9 @@
         function setActiveLink(activeLink) {
             if (currentActiveLink === activeLink) return;
             if (currentActiveLink) currentActiveLink.classList.remove("active");
-            activeLink.classList.add("active");
+            if (activeLink) activeLink.classList.add("active");
             currentActiveLink = activeLink;
-            if (!programmaticScroll) expandAncestors(activeLink);
+            if (activeLink && !programmaticScroll) expandAncestors(activeLink);
         }
 
         // Scroll-spy: highlight the last heading at or above the 25% line,
@@ -192,7 +126,10 @@
 
         function updateHighlight() {
             const el = findActiveHeadingEl();
-            if (!el) return;
+            if (!el) {
+                setActiveLink(null);
+                return;
+            }
             const link = linkMap.get(el.id);
             if (link) setActiveLink(link);
         }

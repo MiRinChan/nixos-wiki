@@ -36,12 +36,13 @@
       });
     </script>
   </head>
-  <body>
+  <body class="{{has_toc}}">
     <a class="skip-link" href="#wiki-content">跳到正文</a>
+    <p id="wiki-navigation-status" class="wiki-navigation-status" role="status" aria-live="polite" aria-atomic="true"></p>
     <div id="wiki-progress" hidden></div>
-    <h1 class="autoInject">{{site_link}} / {{heading}}</h1>
+    <h1 class="autoInject" tabindex="-1">{{site_link}} / {{heading}}</h1>
     <hr class="autoInject" />
-    <nav id="toc" class="toc"></nav>
+    <nav id="toc" class="toc"{{toc_hidden}}>{{toc}}</nav>
     <main id="wiki-content"><article>{{content}}</article></main>
     {{footer_html}}
   </body>

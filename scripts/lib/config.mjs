@@ -2,6 +2,7 @@
 // driven site config, and small pure helpers used across the build modules.
 
 import path from "node:path";
+import process from "node:process";
 import { fileURLToPath } from "node:url";
 
 // This module lives at scripts/lib/, so the repo root is three levels up.
@@ -27,16 +28,20 @@ function readUrlEnv(name, fallback) {
   const value = readEnv(name, fallback);
 
   try {
-    return new URL(value).origin;
+    const url = new URL(value);
+    if (url.protocol !== "http:" && url.protocol !== "https:") {
+      throw new Error("unsupported protocol");
+    }
+    return url.origin;
   } catch {
-    throw new Error(`${name} must be an absolute URL: ${value}`);
+    throw new Error(`${name} must be an absolute HTTP(S) URL: ${value}`);
   }
 }
 
 function readPathPrefixEnv(name, fallback) {
   const value = readEnv(name, fallback).replace(/^\/+|\/+$/g, "");
 
-  if (!value || value.includes("?") || value.includes("#")) {
+  if (!value || value.includes("\\") || value.includes("?") || value.includes("#")) {
     throw new Error(`${name} must be a non-empty URL path prefix without query or fragment`);
   }
 
@@ -48,8 +53,9 @@ function readPathPrefixEnv(name, fallback) {
   return value;
 }
 
-function readOptionalPathEnv(name) {
-  const value = readEnv(name);
+function readOptionalPathEnv(name, fallback) {
+  const rawValue = process.env[name];
+  const value = rawValue === undefined ? fallback : rawValue.trim();
 
   if (!value) {
     return "";
@@ -67,10 +73,10 @@ export const siteConfig = {
   siteOrigin: readUrlEnv("WIKI_SITE_ORIGIN", "https://nixoscn.org"),
   htmlLang: readEnv("WIKI_HTML_LANG", "zh-CN"),
   entryUrlPrefix: readPathPrefixEnv("WIKI_ENTRY_URL_PREFIX", "wiki"),
-  editUrlTemplate: readOptionalPathEnv("WIKI_EDIT_URL_TEMPLATE") || "https://github.com/MiRinChan/nixos-wiki/edit/main/{encodedPath}",
+  editUrlTemplate: readOptionalPathEnv("WIKI_EDIT_URL_TEMPLATE", "https://github.com/MiRinChan/nixos-wiki/edit/main/{encodedPath}"),
   editLinkLabel: readEnv("WIKI_EDIT_LINK_LABEL", "前往 GitHub 编辑此页"),
-  faviconPath: readOptionalPathEnv("WIKI_FAVICON_PATH") || "photo_2026-05-14_19-41-31.jpg",
-  cname: readOptionalPathEnv("WIKI_CNAME") || "nixoscn.org",
+  faviconPath: readOptionalPathEnv("WIKI_FAVICON_PATH", "photo_2026-05-14_19-41-31.jpg"),
+  cname: readOptionalPathEnv("WIKI_CNAME", "nixoscn.org"),
 };
 export const defaultFooterHtml = "CC-BY-SA 4.0许可证授权，但禁止在所有 MediaWiki 程序中复制和分发。";
 

@@ -7,10 +7,13 @@
 import { serveDir } from "@std/http/file-server";
 import { promises as fs } from "node:fs";
 import path from "node:path";
-import { build } from "./build.mjs";
-import { entriesDir, homePath, markdownTemplateDir, outDir, rootDir, templatePath } from "./lib/config.mjs";
-
 const PORT = Number(Deno.env.get("WIKI_DEV_PORT") ?? "8000");
+if (!Deno.env.has("WIKI_SITE_ORIGIN")) {
+  Deno.env.set("WIKI_SITE_ORIGIN", `http://localhost:${PORT}`);
+}
+
+const { build } = await import("./build.mjs");
+const { entriesDir, homePath, markdownTemplateDir, outDir, rootDir, templatePath } = await import("./lib/config.mjs");
 
 const RELOAD_SNIPPET = `
 <script>
@@ -101,6 +104,24 @@ async function rebuild(reason) {
   }
 }
 
+let rebuildRunning = false;
+let pendingRebuild = false;
+
+async function queueRebuild(reason) {
+  if (rebuildRunning) {
+    pendingRebuild = true;
+    return;
+  }
+
+  rebuildRunning = true;
+  do {
+    pendingRebuild = false;
+    await rebuild(reason);
+    reason = "queued change";
+  } while (pendingRebuild);
+  rebuildRunning = false;
+}
+
 async function watchSources() {
   const candidates = [
     entriesDir,
@@ -129,11 +150,11 @@ async function watchSources() {
   let timer;
   for await (const _event of watcher) {
     clearTimeout(timer);
-    timer = setTimeout(() => rebuild("change"), 80);
+    timer = setTimeout(() => queueRebuild("change"), 80);
   }
 }
 
-await rebuild("startup");
+await queueRebuild("startup");
 watchSources();
 Deno.serve({
   port: PORT,

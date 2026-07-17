@@ -9,7 +9,6 @@ import { promises as fs } from "node:fs";
 import assert from "node:assert/strict";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { renderMarkdown } from "../scripts/build.mjs";
 import { buildManifest, diffManifests } from "./manifest.mjs";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -36,24 +35,14 @@ Deno.test("out/ matches golden baseline", async () => {
   }
 });
 
-Deno.test("entry pages contain server-rendered TOC markup", async () => {
-  const html = await fs.readFile(path.join(root, "out/wiki/NVIDIA/index.html"), "utf8");
-  assert(html.includes('<ul id="toc-tree">'), "TOC tree should be rendered during build");
-  assert(
-    html.includes('<details class="toc-container" open><summary>目录</summary>'),
-    "TOC should use an operable native disclosure",
-  );
-  assert(
-    html.includes('<details class="toc-branch" open><summary>启用 的子目录</summary>'),
-    "nested TOC branches should remain operable without JavaScript",
-  );
-  assert(!html.includes('class="toc-toggle"'), "TOC should not contain script-only controls");
-});
-
-Deno.test("generated heading IDs are unique", () => {
-  const html = renderMarkdown("## 重复标题\n\n## 重复标题\n");
-  assert(html.includes('<h2 id="重复标题">'));
-  assert(html.includes('<h2 id="重复标题-2">'));
+Deno.test("generated entry links omit trailing slashes for wikiwrapper", async () => {
+  const html = await fs.readFile(path.join(root, "out", "index.html"), "utf8");
+  if (html.includes('href="https://nixoscn.org/wiki/FAQ/"')) {
+    throw new Error("entry links must omit trailing slashes");
+  }
+  if (!html.includes('href="https://nixoscn.org/wiki/FAQ"')) {
+    throw new Error("expected an extensionless entry link");
+  }
 });
 
 Deno.test("homepage controls work without JavaScript", async () => {

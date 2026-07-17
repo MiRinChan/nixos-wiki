@@ -217,7 +217,6 @@ function extractDescription(html) {
 function renderPage(template, title, content, editUrl, pageSegments = [], assetPrefix = '', heading = escapeHtml(title), entryTopLevelSegments = new Set()) {
   const description = extractDescription(content) || siteConfig.siteTitle;
   const canonicalUrl = pageUrlForSegments(siteConfig.siteOrigin, pageSegments);
-  const toc = buildTocHtml(content, pageSegments);
   const page = template
     .replaceAll("{{html_lang}}", escapeHtml(siteConfig.htmlLang))
     .replaceAll("{{title}}", escapeHtml(title))
@@ -226,9 +225,6 @@ function renderPage(template, title, content, editUrl, pageSegments = [], assetP
     .replaceAll("{{site_name}}", escapeHtml(siteConfig.siteTitle))
     .replaceAll("{{site_link}}", buildSiteLink())
     .replaceAll("{{heading}}", heading)
-    .replaceAll("{{toc}}", toc.html)
-    .replaceAll("{{toc_hidden}}", toc.hasToc ? "" : " hidden")
-    .replaceAll("{{has_toc}}", toc.hasToc ? "has-toc" : "")
     .replaceAll("{{favicon_link}}", buildFaviconLink(assetPrefix))
     .replaceAll("{{content}}", content)
     .replaceAll("{{footer_html}}", buildFooterHtml(editUrl))
@@ -515,61 +511,6 @@ function buildEntryHeading(entry) {
   });
 
   return items.join("<span aria-hidden=\"true\"> / </span>");
-}
-
-function decodeHtmlText(value) {
-  return value
-    .replace(/<[^>]*>/g, "")
-    .replace(/&nbsp;/gi, " ")
-    .replace(/&amp;/gi, "&")
-    .replace(/&lt;/gi, "<")
-    .replace(/&gt;/gi, ">")
-    .replace(/&quot;/gi, '"')
-    .replace(/&#39;|&apos;/gi, "'")
-    .replace(/&#(\d+);/g, (_match, code) => String.fromCodePoint(Number(code)))
-    .replace(/&#x([\da-f]+);/gi, (_match, code) => String.fromCodePoint(parseInt(code, 16)));
-}
-
-function buildTocHtml(content, pageSegments) {
-  if (pageSegments.length === 0) return { html: "", hasToc: false };
-
-  const headings = [];
-  const headingPattern = /<h([2-6])\b[^>]*\bid="([^"]*)"[^>]*>([\s\S]*?)<\/h\1>/gi;
-  let match;
-  while ((match = headingPattern.exec(content)) !== null) {
-    headings.push({
-      level: Number(match[1]),
-      id: match[2],
-      text: escapeHtml(decodeHtmlText(match[3]).trim()),
-      children: [],
-    });
-  }
-
-  if (headings.length === 0) return { html: "", hasToc: false };
-
-  const root = { level: 1, children: [] };
-  const stack = [root];
-  for (const heading of headings) {
-    while (stack.at(-1).level >= heading.level) stack.pop();
-    stack.at(-1).children.push(heading);
-    stack.push(heading);
-  }
-
-  function renderNodes(nodes) {
-    return nodes.map((node) => {
-      const hasChildren = node.children.length > 0;
-      const link = `<a href="#${escapeHtml(node.id)}">${node.text}</a>`;
-      if (!hasChildren) return `<li>${link}</li>`;
-
-      return `<li>${link}<details class="toc-branch" open><summary>${node.text} 的子目录</summary><ul>${renderNodes(node.children)}</ul></details></li>`;
-    }).join("\n");
-  }
-
-  const tree = `<ul id="toc-tree">${renderNodes(root.children)}</ul>`;
-  return {
-    html: `<details class="toc-container" open><summary>目录</summary>${tree}</details>`,
-    hasToc: true,
-  };
 }
 
 function* walkEntries(entries) {

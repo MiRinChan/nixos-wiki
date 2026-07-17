@@ -15,6 +15,45 @@ if (!Deno.env.has("WIKI_SITE_ORIGIN")) {
 const { build } = await import("./build.mjs");
 const { entriesDir, homePath, markdownTemplateDir, outDir, rootDir, templatePath } = await import("./lib/config.mjs");
 
+function wrapperUrl(url) {
+  const redirected = new URL(url);
+  if (redirected.pathname !== "/" && redirected.pathname.endsWith("/")) {
+    redirected.pathname = redirected.pathname.slice(0, -1);
+    return redirected;
+  }
+  return null;
+}
+
+async function serveOutput(request, url) {
+  const headers = new Headers(request.headers);
+  headers.delete("if-none-match");
+  headers.delete("if-modified-since");
+
+  const requestUrl = new URL(url);
+  let response = await serveDir(new Request(requestUrl, {
+    method: request.method,
+    headers,
+  }), {
+    fsRoot: outDir,
+    quiet: true,
+  });
+
+  // Production pages live at <path>/index.html, while wikiwrapper exposes
+  // the public URL as <path> after redirecting away a trailing slash.
+  if (response.status !== 200 && !requestUrl.pathname.endsWith("/")) {
+    requestUrl.pathname += "/index.html";
+    response = await serveDir(new Request(requestUrl, {
+      method: request.method,
+      headers,
+    }), {
+      fsRoot: outDir,
+      quiet: true,
+    });
+  }
+
+  return response;
+}
+
 const RELOAD_SNIPPET = `
 <script>
   (() => {
@@ -66,15 +105,12 @@ async function handler(req) {
     return liveReloadStream();
   }
 
-  // Drop conditional headers so serveDir always returns full content (no 304),
-  // guaranteeing the HTML injection below runs and dev never serves stale pages.
-  const headers = new Headers(req.headers);
-  headers.delete("if-none-match");
-  headers.delete("if-modified-since");
-  const res = await serveDir(new Request(url, { method: req.method, headers }), {
-    fsRoot: outDir,
-    quiet: true,
-  });
+  const redirectUrl = wrapperUrl(url);
+  if (redirectUrl) {
+    return Response.redirect(redirectUrl.toString(), 301);
+  }
+
+  const res = await serveOutput(req, url);
 
   const contentType = res.headers.get("content-type") ?? "";
   if (res.status === 200 && contentType.includes("text/html")) {

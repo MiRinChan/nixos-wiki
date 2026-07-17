@@ -16,7 +16,7 @@
     if (!reduceMotionMQ.matches) return;
     if (hlRAF) cancelAnimationFrame(hlRAF);
     hlRAF = null;
-    hlCtx.clearRect(0, 0, hlCanvas.width, hlCanvas.height);
+    hlCtx?.clearRect(0, 0, hlCanvas.width, hlCanvas.height);
   });
   function resizeHlCanvas() {
     hlCanvas.width = window.innerWidth;
@@ -27,11 +27,37 @@
 
   let hlTarget = null;
   let hlRAF = null;
+  let highlightTimer = null;
+  let highlightedStyle = null;
 
   function highlightTarget(target) {
-    // Respect users who prefer reduced motion: skip the animated highlight.
-    // The browser still scrolls the anchor into view.
-    if (reduceMotionMQ.matches) return;
+    if (highlightTimer) window.clearTimeout(highlightTimer);
+    if (highlightedStyle) {
+      highlightedStyle.target.style.outline = highlightedStyle.outline;
+      highlightedStyle.target.style.outlineOffset = highlightedStyle.outlineOffset;
+      highlightedStyle.target.style.borderRadius = highlightedStyle.borderRadius;
+      highlightedStyle = null;
+    }
+
+    highlightedStyle = {
+      target,
+      outline: target.style.outline,
+      outlineOffset: target.style.outlineOffset,
+      borderRadius: target.style.borderRadius,
+    };
+    target.style.outline = "3px solid #ff8205";
+    target.style.outlineOffset = "4px";
+    target.style.borderRadius = "2px";
+    highlightTimer = window.setTimeout(() => {
+      if (!highlightedStyle || highlightedStyle.target !== target) return;
+      target.style.outline = highlightedStyle.outline;
+      target.style.outlineOffset = highlightedStyle.outlineOffset;
+      target.style.borderRadius = highlightedStyle.borderRadius;
+      highlightedStyle = null;
+      highlightTimer = null;
+    }, 7000);
+
+    if (!hlCtx) return;
     hlTarget = target;
     if (hlRAF) cancelAnimationFrame(hlRAF);
     const duration = 7000;
@@ -101,14 +127,18 @@
     scrollEndTimer = window.setTimeout(finishProgrammaticScroll, 180);
   }
 
+  function decodeHash(hash) {
+    try {
+      return decodeURIComponent(hash.slice(1));
+    } catch (_err) {
+      return null;
+    }
+  }
+
   function scrollToHash(hash) {
     if (!hash || hash === "#") return;
-    let id;
-    try {
-      id = decodeURIComponent(hash.slice(1));
-    } catch (_err) {
-      return;
-    }
+    const id = decodeHash(hash);
+    if (!id) return;
     const target = document.getElementById(id);
     if (!target) return;
 

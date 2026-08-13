@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>NixOS Wiki zh-CN</title>
+    <meta name="description" content=".autoInject { display: none !important; } 米凛的 NixOS中文维基 NixOS 一个基于 Nix包管理器 的 GNU/Linux 发行版，具有独特的包管理和系统配置方式。 词条 你可以用 Control + F 来快速的搜索。 三月一月 FAQ FAQ/为…" />
+    <link rel="canonical" href="https://nixoscn.org/" />
+    <meta property="og:title" content="NixOS Wiki zh-CN" />
+    <meta property="og:description" content=".autoInject { display: none !important; } 米凛的 NixOS中文维基 NixOS 一个基于 Nix包管理器 的 GNU/Linux 发行版，具有独特的包管理和系统配置方式。 词条 你可以用 Control + F 来快速的搜索。 三月一月 FAQ FAQ/为…" />
+    <meta property="og:type" content="article" />
+    <meta property="og:url" content="https://nixoscn.org/" />
+    <meta property="og:site_name" content="NixOS Wiki zh-CN" />
+    <link
+      rel="icon"
+      type="image/x-icon"
+      href="https://nixoscn.org/photo_2026-05-14_19-41-31.jpg"
+    />
+    <link rel="stylesheet" href="https://nixoscn.org/styles-base.css" />
+    <link rel="stylesheet" href="https://nixoscn.org/styles-code-light.css" />
+    <link rel="stylesheet" href="https://nixoscn.org/styles-code-dark.css" />
+    <script src="https://nixoscn.org/anchor-highlight.js" defer></script>
+    <script src="https://nixoscn.org/toc.js" defer></script>
+    <script src="https://nixoscn.org/nav.js" defer></script>
+    <!-- Pinned version + Subresource Integrity (supply-chain hardening).
+         To update: bump the version, then recompute the hash with
+         `curl -sL <url> | node -e 'const c=require("crypto");const h=c.createHash("sha384");process.stdin.on("data",d=>h.update(d)).on("end",()=>console.log("sha384-"+h.digest("base64")))'` -->
+    <script
+      src="https://cdn.jsdelivr.net/npm/mermaid@11.15.0/dist/mermaid.min.js"
+      integrity="sha384-yQ4mmBBT+vhTAwjFH0toJXNYJ6O4usWnt6EPIdWwrRvx2V/n5lXuDZQwQFeSFydF"
+      crossorigin="anonymous"
+      referrerpolicy="no-referrer"
+      defer
+    ></script>
+    <script>
+      document.addEventListener("DOMContentLoaded", function () {
+        if (typeof mermaid !== "undefined") {
+          mermaid.initialize({ startOnLoad: true, theme: "default" });
+        }
+      });
+    </script>
+  </head>
+  <body>
+    <a class="skip-link" href="https://nixoscn.org/#wiki-content">跳到正文</a>
+    <div id="wiki-progress" hidden></div>
+    <h1 class="autoInject"><a href="https://nixoscn.org/">NixOS Wiki zh-CN</a> / NixOS Wiki zh-CN</h1>
+    <hr class="autoInject" />
+    <nav id="toc" class="toc"></nav>
+    <main id="wiki-content"><article><style>
+  .autoInject {
+    display: none !important;
+  }
+</style>
+
+<p><img
+  src="https://nixoscn.org/photo_2026-05-14_19-41-31.jpg"
+  alt="NixOS Logo"
+  align='right'
+  width="100px"
+/></p>
+<h1 id="米凛的nixos中文维基"><sup style="font-size: small;">米凛的</sup>NixOS中文维基</h1><p><a href="https://wikipedia.org/wiki/NixOS">NixOS</a>一个基于<a href="https://wikipedia.org/wiki/Nix_(package_manager)">Nix包管理器</a>的<a href="https://wikipedia.org/wiki/GNU/Linux">GNU/Linux</a>发行版，具有独特的包管理和系统配置方式。</p>
+<h2 id="词条">词条</h2><p>你可以用<code>Control + F</code>来快速的搜索。</p>
+<ul>
+      <li><a href="https://nixoscn.org/wiki/%E4%B8%89%E6%9C%88%E4%B8%80%E6%9C%88">三月一月</a></li>
+      <li><a href="https://nixoscn.org/wiki/FAQ">FAQ</a>
+<ul>
+      <li><a href="https://nixoscn.org/wiki/FAQ/%E4%B8%BA%E4%BB%80%E4%B9%88%20NixOSCN.org%EF%BC%9F">FAQ/为什么 NixOSCN.org？</a></li>
+    </ul></li>
+      <li><a href="https://nixoscn.org/wiki/NVIDIA">NVIDIA</a></li>
+    </ul>
+
+<p>没有你想要的词条？何不动手新建：<input id="newEntryInput" placeholder="词条名字"></input>
+<button id="newEntryCreate">在 GitHub 新建词条</button></p>
+<p>注意：GitHub 不设草稿箱，请务必在其他地方写好。并阅读<a href="https://nixoscn.org/wiki/%E7%AB%99%E5%8A%A1/%E8%B4%A1%E7%8C%AE%E8%80%85%E6%8C%87%E5%8D%97">站务/贡献者指南</a></p>
+<script>
+  const input = document.getElementById("newEntryInput");
+  const button = document.getElementById("newEntryCreate");
+
+  function createEntry() {
+    const entryName = input.value.trim();
+    if (!entryName) { return; }
+      const encodedEntryName = encodeURIComponent(entryName);
+      const url = `https://github.com/MiRinChan/nixos-wiki/new/main/entries/${encodedEntryName}?filename=index.md`; window.open(url, "_blank");
+    }
+
+  button.addEventListener("click", createEntry);
+  input.addEventListener("keydown", (e) => { if (e.key === "Enter") { createEntry(); } } );
+</script>
+
+
+<hr>
+<h2 id="子站点">子站点</h2><h3 id="is-it-built-on-hydra-yet---yet-nixoscn-org"><a href="https://yet.nixoscn.org/">Is it built on Hydra yet?</a> - <code>yet.nixoscn.org</code></h3><p>这个网站提供NixOS Hydra上的<code>nixos-unstable</code>和<code>nixpkgs-unstable</code>的编译进度，可以让你方便的决定什么时候可以更新你的实例。网站没有 JavaScript，便利特殊人士使用。</p>
+<h4 id="使用技巧">使用技巧</h4><div class="code-container">
+        
+        <pre><code class="language-bash hljs"><span class="hljs-comment"># 返回最新且编译完毕的 commit hash</span>
+<span class="hljs-built_in">echo</span> <span class="hljs-string">&quot;<span class="hljs-subst">$(curl -s https://yet.nixoscn.org/l)</span>&quot;</span>
+<span class="hljs-comment"># output: `867dcbc30bafe3c862ef88620f2e7a109d7d3be5`</span></code></pre>
+      </div><hr>
+<p>你是一个了不起的人物！</p>
+<blockquote>
+<p>注意：<a href="https://nixos-cn.org/"><code>nixos-cn.org</code></a> 为另一个网站。本站点独立于NixOS基金会以及NixOS中文运行。本站旨在提供方便NixOS用户的内容。</p>
+</blockquote>
+<p><a href="https://nixoscn.org/"><img alt="NixOS Unofficial Zh Wiki" src="https://nixoscn.org/NixOS%20Unofficial%20Chinese%20Wiki%20Badge.png"></a></p>
+<div class="code-container">
+        
+        <pre><code class="language-markdown hljs">分享给别人
+[<span class="hljs-string">&lt;img alt=&quot;NixOS Unofficial Zh Wiki&quot; src=&quot;https://nixoscn.org/NixOS Unofficial Chinese Wiki Badge.png&quot;&gt;</span>](<span class="hljs-link">https://nixoscn.org</span>)</code></pre>
+      </div></article></main>
+    <hr class="autoInject" />
+    <footer class="autoInject">
+      <a
+        class="autoInject"
+        href="https://github.com/MiRinChan/nixos-wiki/edit/main/index.md"
+        target="_blank"
+        rel="noreferrer"
+        >前往 GitHub 编辑此页</a
+      >
+      CC-BY-SA 4.0许可证授权，但禁止在所有 MediaWiki 程序中复制和分发。
+    </footer>
+  </body>
+</html>

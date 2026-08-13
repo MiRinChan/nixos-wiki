@@ -1,0 +1,594 @@
+/* The wiki program. Provide a simple markdown-based wiki with a static site generator for easy hosting on GitHub Pages or similar platforms.
+// Copyright (C) 2026 MiRinChan
+// This program is free software; you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation; either version 2 of the License, or
+// (at your option) any later version.
+// 
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.See the
+// GNU General Public License for more details.
+// 
+// You should have received a copy of the GNU General Public License along
+// with this program; if not, see < https://www.gnu.org/licenses/>.
+*/
+
+:root {
+  --main: oklch(55% 0.25 262);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --main: oklch(70% 0.15 260);
+  }
+}
+
+body {
+  max-inline-size: 46em;
+  margin: 0 auto;
+  padding: 1em;
+  text-autospace: normal;
+  color: #24292e;
+  background-color: #ffffff;
+}
+
+@media (prefers-color-scheme: dark) {
+  body {
+    color: #e6edf3;
+    background-color: #0d1117;
+  }
+}
+
+h1,
+h2,
+h3 {
+  font-weight: bolder;
+  font-family: serif;
+}
+
+h4,
+h5,
+h6 {
+  font-weight: bold;
+  font-family: sans-serif;
+}
+
+hr {
+  border: none;
+  border-block-start: 1px solid
+    color-mix(in oklch, var(--main), transparent 30%);
+  margin: 1em 0;
+}
+
+img {
+  max-inline-size: 100%;
+  block-size: auto;
+}
+
+blockquote {
+  border-inline-start: 4px solid
+    color-mix(in oklch, var(--main), transparent 10%);
+  padding-inline-start: 1em;
+  margin: 1em 0;
+  border-radius: 0.25em;
+}
+
+code {
+  font-family:
+    ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono",
+    monospace;
+  font-size: 0.85em;
+  padding: 0.2em 0.4em;
+  border-radius: 6px;
+  background-color: rgba(175, 184, 193, 0.2);
+}
+
+@media (prefers-color-scheme: dark) {
+  code {
+    background-color: rgba(110, 118, 129, 0.4);
+  }
+}
+
+pre {
+  margin: 0;
+  overflow-x: auto;
+}
+
+pre code {
+  padding: 0;
+  border-radius: 0;
+  background: none;
+  font-size: 0.85em;
+}
+
+/* Table styles */
+table {
+  inline-size: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  margin: 1em 0;
+  font-size: 0.95em;
+  border-radius: 0.5em;
+  overflow: clip;
+}
+
+table thead tr:first-child th:first-child {
+  border-start-start-radius: 0.5em;
+}
+
+table thead tr:first-child th:last-child {
+  border-start-end-radius: 0.5em;
+}
+
+table tbody tr:last-child td:first-child {
+  border-end-start-radius: 0.5em;
+}
+
+table tbody tr:last-child td:last-child {
+  border-end-end-radius: 0.5em;
+}
+
+th,
+td {
+  border: 1px solid color-mix(in oklch, var(--main), transparent 70%);
+  padding: 0.5em 0.75em;
+}
+
+th {
+  background: color-mix(in oklch, var(--main), transparent 85%);
+  font-weight: bold;
+  font-family: sans-serif;
+}
+
+tr:nth-child(even) {
+  background: color-mix(in oklch, var(--main), transparent 98%);
+}
+
+tr:hover {
+  background: color-mix(in oklch, var(--main), transparent 97%);
+}
+
+a {
+  color: var(--main);
+  text-decoration: none;
+}
+
+a,
+a:link {
+  color: var(--main);
+  text-decoration: underline;
+}
+
+a:visited {
+  color: oklch(from var(--main) calc(l - 0.06) calc(c - 0.1) h);
+}
+
+@media (prefers-color-scheme: dark) {
+  a:visited {
+    color: oklch(from var(--main) calc(l + 0.6) calc(c + 0.1) h);
+  }
+}
+
+input {
+  /* layout */
+  display: inline-block;
+
+
+  font-size: 0.7em;
+  color: black;
+  vertical-align: baseline;
+  line-height: normal;
+  box-sizing: border-box;
+
+  /* box */
+  background-color: white;
+  border: 1px solid #e6e6e6; 
+  border-radius: 6px;
+  padding-block: 0.2em;
+  padding-block-start: 0.23em;
+  padding-inline: 0.5em;
+
+  caret-color: #0a84ff;
+}
+
+button {
+  /* layout */
+  display: inline-block;
+  margin: 0;
+  font-size: 0.64em;
+  color: #000000;
+  text-align: center;
+  --btn-bg: #e4e4e4;
+  background-color: var(--btn-bg);
+  border: 1px solid #FFFFFF;
+  border-radius: 999px;
+  padding-block: 0.35em;
+  padding-block-end: 0.37em;
+  padding-inline: 1em;
+  box-sizing: border-box;
+}
+
+button:active {
+  background-color: color-mix(in oklab, var(--btn-bg) 85%, white 15%); 
+  @media (prefers-color-scheme: dark) {
+    background-color: color-mix(in oklab, var(--btn-bg) 85%, black 15%);
+  }
+}
+
+/* input :focus — blue outline as seen in photo */
+input:focus {
+  outline: none;
+  border-color: #0a84ff; /* -apple-system-blue */
+  box-shadow: 0 0 0 3px rgba(10, 132, 255, 0.25);
+}
+
+@media (prefers-color-scheme: dark) {
+  input {
+    color: #e6edf3;
+    background-color: #161b22;
+    border-color: #30363d;
+  }
+
+  button {
+    color: #e6edf3;
+    border-color: #30363d;
+    --btn-bg: #21262d;
+  }
+}
+
+/* Skip link — visually hidden until focused via keyboard */
+.skip-link {
+  position: absolute;
+  left: 0.5em;
+  top: -3em;
+  z-index: 2000;
+  padding: 0.4em 0.8em;
+  background-color: var(--main);
+  color: #ffffff;
+  border-radius: 6px;
+  transition: top 0.15s ease;
+}
+
+.skip-link:focus {
+  top: 0.5em;
+}
+
+/* ===== TOC (Table of Contents) ===== */
+
+:root {
+  --toc-width: 14em;
+}
+
+.toc {
+  font-size: 0.85em;
+  line-height: 1.6;
+}
+
+.toc-header {
+  display: none;
+}
+
+.toc-collapse-toggle {
+  inline-size: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75em;
+  font: inherit;
+  color: inherit;
+  text-align: start;
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  padding: 0;
+}
+
+/* CSS-drawn down chevron — avoids U+1F853, which Safari cannot render */
+.toc-collapse-toggle::after {
+  content: "";
+  flex: none;
+  opacity: 0.65;
+  inline-size: 0.5em;
+  block-size: 0.5em;
+  border-inline-end: 2px solid currentColor;
+  border-block-end: 2px solid currentColor;
+  transform: translateY(-0.15em) rotate(45deg);
+  transition: transform 0.2s ease;
+}
+
+.toc.toc-collapsed .toc-collapse-toggle::after {
+  transform: translateY(-0.05em) rotate(-45deg);
+}
+
+.toc ul {
+  list-style: none;
+  padding-inline-start: 1.2em;
+  margin: 0;
+}
+
+.toc li {
+  position: relative;
+}
+
+.toc a {
+  text-decoration: none;
+  color: inherit;
+  display: inline-block;
+  padding: 0.15em 0;
+}
+
+.toc a:hover {
+  color: var(--main);
+}
+
+.toc a.active {
+  color: var(--main);
+  font-weight: bold;
+}
+
+/* Toggle button */
+.toc-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.4em;
+  height: 1.4em;
+  margin-inline-start: 0.2em;
+  padding: 0;
+  border: none;
+  background: none;
+  cursor: pointer;
+  font-size: 0.75em;
+  vertical-align: middle;
+  color: inherit;
+  opacity: 0.5;
+  transition: transform 0.2s ease;
+}
+
+.toc-toggle:active, .toc-collapse-toggle:active {
+  background-color: transparent; 
+}
+
+/* CSS-drawn down chevron — avoids U+1F853, which Safari cannot render */
+.toc-toggle::before {
+  content: "";
+  inline-size: 0.5em;
+  block-size: 0.5em;
+  border-inline-end: 2px solid currentColor;
+  border-block-end: 2px solid currentColor;
+  transform: translateY(-0.15em) rotate(45deg);
+}
+
+.toc li.collapsed > .toc-toggle {
+  transform: rotate(-90deg);
+}
+
+.toc-toggle:hover {
+  opacity: 1;
+}
+
+/* Collapsed children */
+.toc li.collapsed > ul {
+  display: none;
+}
+
+/* ===== Responsive TOC ===== */
+
+/* Mobile: inline before content */
+@media (max-width: 47.99em) {
+  .toc {
+    margin-block-end: 1.5em;
+    padding: 0.75em 1em;
+    border: 1px solid color-mix(in oklch, var(--main), transparent 70%);
+    border-radius: 0.5em;
+    background: color-mix(in oklch, var(--main), transparent 97%);
+  }
+
+  .toc-header {
+    display: block;
+  }
+
+  .toc-header + ul {
+    margin-block-start: 0.5em;
+  }
+
+  .toc.toc-collapsed > ul {
+    display: none;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    .toc {
+      background: color-mix(in oklch, var(--main), transparent 93%);
+    }
+  }
+}
+
+/* Desktop: sticky sidebar on the left, only when TOC is present */
+@media (min-width: 48em) {
+  body.has-toc {
+    padding-inline-start: calc(var(--toc-width) + 2em);
+  }
+
+  .toc {
+    position: fixed;
+    inset-block-start: 1em;
+    inset-inline-start: max(1em, calc((100vw - 46em) / 2 - var(--toc-width) - 2em));
+    inline-size: var(--toc-width);
+    max-block-size: calc(100vh - 2em);
+    overflow-y: auto;
+    padding: 0.5em 0;
+    scrollbar-width: thin;
+  }
+
+  /* Ensure TOC doesn't go off-screen on narrow viewports */
+  @media (max-width: calc(46em + var(--toc-width) + 4em)) {
+    .toc {
+      inset-inline-start: 1em;
+    }
+  }
+}
+
+
+/* ===== AJAX navigation ===== */
+
+#wiki-progress {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 1000;
+  width: 0;
+  height: 3px;
+  background: var(--main);
+  box-shadow: 0 0 8px var(--main);
+  pointer-events: none;
+}
+
+#wiki-content {
+  transition: opacity 0.15s ease;
+}
+
+#wiki-content.wiki-fading {
+  opacity: 0;
+}
+
+/* ===== GFM Alerts / Callouts ===== */
+
+.markdown-alert {
+  border-inline-start: 4px solid;
+  padding-inline: 1em;
+  padding-block: 0.001em;
+  margin: 1em 0;
+  border-radius: 0.25em;
+}
+
+.markdown-alert-title {
+  font-weight: bold;
+  margin-block: 0.6em;
+}
+
+.markdown-alert > p:not(.markdown-alert-title) {
+  margin-block: 0.6em;
+}
+
+.markdown-alert-title svg {
+  vertical-align: middle;
+  margin-inline-end: 0.3em;
+}
+
+/* Note — blue */
+.markdown-alert-note {
+  border-color: oklch(55% 0.18 250);
+  background: oklch(55% 0.18 250 / 0.08);
+  .markdown-alert-title {
+    color: oklch(55% 0.18 250);
+  }
+  .markdown-alert-title svg {
+    fill: oklch(55% 0.18 250);
+  }
+}
+
+/* Tip — green */
+.markdown-alert-tip {
+  border-color: oklch(55% 0.18 145);
+  background: oklch(55% 0.18 145 / 0.08);
+  .markdown-alert-title {
+    color: oklch(55% 0.18 145);
+  }
+  .markdown-alert-title svg {
+    fill: oklch(55% 0.18 145);
+  }
+}
+
+/* Important — purple */
+.markdown-alert-important {
+  border-color: oklch(50% 0.18 300);
+  background: oklch(50% 0.18 300 / 0.08);
+  .markdown-alert-title {
+    color: oklch(50% 0.18 300);
+  }
+  .markdown-alert-title svg {
+    fill: oklch(50% 0.18 300);
+  }
+}
+
+/* Warning — yellow */
+.markdown-alert-warning {
+  border-color: oklch(60% 0.18 85);
+  background: oklch(60% 0.18 85 / 0.08);
+  .markdown-alert-title {
+    color: oklch(60% 0.18 85);
+  }
+  .markdown-alert-title svg {
+    fill: oklch(60% 0.18 85);
+  }
+}
+
+/* Caution — red */
+.markdown-alert-caution {
+  border-color: oklch(50% 0.2 25);
+  background: oklch(50% 0.2 25 / 0.08);
+  .markdown-alert-title {
+    color: oklch(50% 0.2 25);
+  }
+  .markdown-alert-title svg {
+    fill: oklch(50% 0.2 25);
+  }
+}
+
+@media (prefers-color-scheme: dark) {
+  .markdown-alert-note {
+    border-color: oklch(70% 0.12 250);
+    background: oklch(70% 0.12 250 / 0.1);
+    .markdown-alert-title {
+      color: oklch(70% 0.12 250);
+    }
+    .markdown-alert-title svg {
+      fill: oklch(70% 0.12 250);
+    }
+  }
+
+  .markdown-alert-tip {
+    border-color: oklch(70% 0.12 145);
+    background: oklch(70% 0.12 145 / 0.1);
+    .markdown-alert-title {
+      color: oklch(70% 0.12 145);
+    }
+    .markdown-alert-title svg {
+      fill: oklch(70% 0.12 145);
+    }
+  }
+
+  .markdown-alert-important {
+    border-color: oklch(65% 0.12 300);
+    background: oklch(65% 0.12 300 / 0.1);
+    .markdown-alert-title {
+      color: oklch(65% 0.12 300);
+    }
+    .markdown-alert-title svg {
+      fill: oklch(65% 0.12 300);
+    }
+  }
+
+  .markdown-alert-warning {
+    border-color: oklch(75% 0.12 85);
+    background: oklch(75% 0.12 85 / 0.1);
+    .markdown-alert-title {
+      color: oklch(75% 0.12 85);
+    }
+    .markdown-alert-title svg {
+      fill: oklch(75% 0.12 85);
+    }
+  }
+
+  .markdown-alert-caution {
+    border-color: oklch(65% 0.15 25);
+    background: oklch(65% 0.15 25 / 0.1);
+    .markdown-alert-title {
+      color: oklch(65% 0.15 25);
+    }
+    .markdown-alert-title svg {
+      fill: oklch(65% 0.15 25);
+    }
+  }
+}

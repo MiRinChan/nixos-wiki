@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>站务/贡献者指南</title>
+    <meta name="description" content="如何贡献 Fork并Clone 仓库 。 新词条放在 entries/{词条名}/index.md 。 子词条放在 entries/{父词条}/{子词条}/index.md 。 本地运行 npm run build 确认可以生成。 提交pull request。 内容规则 一个词条目录可以没有 in…" />
+    <link rel="canonical" href="https://nixoscn.org/wiki/%E7%AB%99%E5%8A%A1/%E8%B4%A1%E7%8C%AE%E8%80%85%E6%8C%87%E5%8D%97/" />
+    <meta property="og:title" content="站务/贡献者指南" />
+    <meta property="og:description" content="如何贡献 Fork并Clone 仓库 。 新词条放在 entries/{词条名}/index.md 。 子词条放在 entries/{父词条}/{子词条}/index.md 。 本地运行 npm run build 确认可以生成。 提交pull request。 内容规则 一个词条目录可以没有 in…" />
+    <meta property="og:type" content="article" />
+    <meta property="og:url" content="https://nixoscn.org/wiki/%E7%AB%99%E5%8A%A1/%E8%B4%A1%E7%8C%AE%E8%80%85%E6%8C%87%E5%8D%97/" />
+    <meta property="og:site_name" content="NixOS Wiki zh-CN" />
+    <link
+      rel="icon"
+      type="image/x-icon"
+      href="https://nixoscn.org/photo_2026-05-14_19-41-31.jpg"
+    />
+    <link rel="stylesheet" href="https://nixoscn.org/styles-base.css" />
+    <link rel="stylesheet" href="https://nixoscn.org/styles-code-light.css" />
+    <link rel="stylesheet" href="https://nixoscn.org/styles-code-dark.css" />
+    <script src="https://nixoscn.org/anchor-highlight.js" defer></script>
+    <script src="https://nixoscn.org/toc.js" defer></script>
+    <script src="https://nixoscn.org/nav.js" defer></script>
+    <!-- Pinned version + Subresource Integrity (supply-chain hardening).
+         To update: bump the version, then recompute the hash with
+         `curl -sL <url> | node -e 'const c=require("crypto");const h=c.createHash("sha384");process.stdin.on("data",d=>h.update(d)).on("end",()=>console.log("sha384-"+h.digest("base64")))'` -->
+    <script
+      src="https://cdn.jsdelivr.net/npm/mermaid@11.15.0/dist/mermaid.min.js"
+      integrity="sha384-yQ4mmBBT+vhTAwjFH0toJXNYJ6O4usWnt6EPIdWwrRvx2V/n5lXuDZQwQFeSFydF"
+      crossorigin="anonymous"
+      referrerpolicy="no-referrer"
+      defer
+    ></script>
+    <script>
+      document.addEventListener("DOMContentLoaded", function () {
+        if (typeof mermaid !== "undefined") {
+          mermaid.initialize({ startOnLoad: true, theme: "default" });
+        }
+      });
+    </script>
+  </head>
+  <body>
+    <a class="skip-link" href="https://nixoscn.org/wiki/%E7%AB%99%E5%8A%A1/%E8%B4%A1%E7%8C%AE%E8%80%85%E6%8C%87%E5%8D%97#wiki-content">跳到正文</a>
+    <div id="wiki-progress" hidden></div>
+    <h1 class="autoInject"><a href="https://nixoscn.org/">NixOS Wiki zh-CN</a> / <a href="https://nixoscn.org/wiki/%E7%AB%99%E5%8A%A1">站务</a><span aria-hidden="true"> / </span>贡献者指南</h1>
+    <hr class="autoInject" />
+    <nav id="toc" class="toc"></nav>
+    <main id="wiki-content"><article><h2 id="如何贡献">如何贡献</h2><ol>
+<li>Fork并Clone<a href="https://github.com/MiRinChan/nixos-wiki">仓库</a>。</li>
+<li>新词条放在<code>entries/{词条名}/index.md</code>。</li>
+<li>子词条放在<code>entries/{父词条}/{子词条}/index.md</code>。</li>
+<li>本地运行<code>npm run build</code>确认可以生成。</li>
+<li>提交pull request。</li>
+</ol>
+<h2 id="内容规则">内容规则</h2><ul>
+<li>一个词条目录可以没有<code>index.md</code>，但必须有子词条；这种目录页会自动列出直接子词条。</li>
+<li>在有子词条的父词条使用<code>{{entries}}</code>模板可列出此父词条的所有子词条。</li>
+<li>支持Markdown，也支持HTML；不要提交复杂脚本。</li>
+<li>词条资源请放在对应词条目录内。</li>
+<li>会被发布的资源类型仅包括：<ul>
+<li><code>.css</code></li>
+<li><code>.gif</code></li>
+<li><code>.ico</code></li>
+<li><code>.jpeg</code></li>
+<li><code>.jpg</code></li>
+<li><code>.js</code></li>
+<li><code>.png</code></li>
+<li><code>.svg</code></li>
+<li><code>.webp</code></li>
+<li><code>.webm</code></li>
+<li><code>.mp4</code>。</li>
+</ul>
+</li>
+<li>无须在中英文之间添加空格。</li>
+</ul>
+<h2 id="模板">模板</h2><p>位于<code>template/</code>目录的<code>.md</code>文件将视为模板。</p>
+<div class="code-container">
+        
+        <pre><code class="language-markdown hljs">{{Thankyou|你的努力|张三}}
+{{Thankyou|2=张三|1=你的友谊}}
+{{Thankyou|signature=张三|reason=你的一切}}</code></pre>
+      </div><p>模板内用三层花括号读取参数：</p>
+<div class="code-container">
+        
+        <pre><code class="language-markdown hljs"><span class="hljs-strong">**感谢你！**</span>
+感谢{{{reason|{{{1}}}}}}。
+祝好，{{{signature|{{{2}}}}}}敬上。</code></pre>
+      </div><ul>
+<li>匿名参数按出现顺序。</li>
+<li>编号参数和命名参数使用<code>名称=值</code>。</li>
+<li>命名参数的名称和值会去掉首尾空白和换行；匿名参数会保留原样。</li>
+<li>空字符串视作已传值，例如<code>{{ParamEcho|bar=}}</code>不会触发<code>{{{bar|fallback}}}</code>的默认值。</li>
+<li>默认值可以继续引用参数或模板，例如<code>{{{reason|{{{1}}}}}}</code>。</li>
+<li>模板内调用其他模板时不会自动继承外层参数；需要显式传递，例如<code>{{Other|{{{1}}}|name={{{name}}}}}</code>。</li>
+<li>缺少模板、非法模板路径、缺少必填参数、模板循环或超过递归深度都会让构建失败。</li>
+<li>在 Markdown 的行内代码以及代码块均不展开。</li>
+</ul>
+<h2 id="链接">链接</h2><ul>
+<li>站内词条直接写出就会变成链接。如 <code>[贡献者指南](站务/贡献者指南)</code>。</li>
+</ul>
+<h2 id="贡献者协议">贡献者协议</h2><p>通过提交pull request，你同意将你的贡献以CC-BY-SA 4.0许可证授权给本项目。并以附加条件（我管它叫Part CC），令其他人禁止在MediaWiki上使用你的贡献，直到承载维基体承诺优化速度或更换MediaWiki到其他程序。</p>
+<p>你需要在提交的pull request末尾加上<code>这是我的翻译</code>或<code>这是我的著作</code>以签署贡献者协议。</p>
+</article></main>
+    <hr class="autoInject" />
+    <footer class="autoInject">
+      <a
+        class="autoInject"
+        href="https://github.com/MiRinChan/nixos-wiki/edit/main/entries/%E7%AB%99%E5%8A%A1/%E8%B4%A1%E7%8C%AE%E8%80%85%E6%8C%87%E5%8D%97/index.md"
+        target="_blank"
+        rel="noreferrer"
+        >前往 GitHub 编辑此页</a
+      >
+      CC-BY-SA 4.0许可证授权，但禁止在所有 MediaWiki 程序中复制和分发。
+    </footer>
+  </body>
+</html>

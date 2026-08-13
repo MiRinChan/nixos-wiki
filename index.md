@@ -25,8 +25,24 @@
 
 ---
 
+## 子站点
+
+### [Is it built on Hydra yet?](https://yet.nixoscn.org/) - `yet.nixoscn.org`
+
+这个网站提供NixOS Hydra上的`nixos-unstable`和`nixpkgs-unstable`的编译进度，可以让你方便的决定什么时候可以更新你的实例。网站没有 JavaScript，便利特殊人士使用。
+
+#### 使用技巧
+
+```bash
+# 返回最新且编译完毕的 commit hash
+echo "$(curl -s https://yet.nixoscn.org/l)"
+# output: `867dcbc30bafe3c862ef88620f2e7a109d7d3be5`
+```
+
+---
+
 你是一个了不起的人物！
 
-> 警告：这不是`nixos-cn`组织的网页，他们的网站是[`nixos-cn.org`](https://nixos-cn.org)，望知悉。
+> 注意：[`nixos-cn.org`](https://nixos-cn.org) 为另一个网站。本站点独立于NixOS基金会以及NixOS中文运行。本站旨在提供方便NixOS用户的内容。
 
 {{BadgeWithShare}}

@@ -21,7 +21,7 @@
 
 {{entries}}
 
-<div sytle="opacity: 0.7;" >
+<div style="opacity: 0.7;" >
 没有你想要的词条？何不动手新建：{{AddEntry}}
 
 ---

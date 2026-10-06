@@ -21,6 +21,7 @@
 
 {{entries}}
 
+<div sytle="opacity: 0.7;" >
 没有你想要的词条？何不动手新建：{{AddEntry}}
 
 ---
@@ -29,7 +30,7 @@
 
 ### [Is it built on Hydra yet?](https://yet.nixoscn.org/) - `yet.nixoscn.org`
 
-这个网站提供NixOS Hydra上的`nixos-unstable`和`nixpkgs-unstable`的编译进度，可以让你方便的决定什么时候可以更新你的实例。网站没有 JavaScript，便利特殊人士使用。
+这个网站提供NixOS Hydra上的`nixos-unstable`和`nixpkgs-unstable`的编译进度，可以让你方便的决定什么时候可以更新你的实例。网站没有JavaScript，便利特殊人士使用。
 
 #### 使用技巧
 
@@ -46,3 +47,5 @@ echo "$(curl -s https://yet.nixoscn.org/l)"
 > 注意：[`nixos-cn.org`](https://nixos-cn.org) 为另一个网站。本站点独立于NixOS基金会以及NixOS中文运行。本站旨在提供方便NixOS用户的内容。
 
 {{BadgeWithShare}}
+
+</div>

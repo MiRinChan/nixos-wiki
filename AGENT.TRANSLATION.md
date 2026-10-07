@@ -5,7 +5,7 @@
 
 ## 翻译前
 
-- 先阅读 [TRANSLATION.md](TRANSLATION.md)、`AGENT.md` 和 `CLAUDE.md`。
+- 先阅读[TRANSLATION.md](TRANSLATION.md)。
 - 确认源页面 URL、目标词条路径和翻译范围。
 - 检查已有相近词条、分类和模板，沿用本仓库的写法。
 - 如果任务涉及 NixOS、nixpkgs、Home Manager、flake、频道、选项或包等事实性内容，查询时优先使用 `mcp-nixos`，不要凭记忆猜。
@@ -40,4 +40,3 @@
 - 不要用大模型判断 NixOS 选项、包名或频道现状是否正确；需要核实时使用 `mcp-nixos`。
 - 不要把 `待定` 术语写进词汇表的固定译法列。
 - 不要提交无法被本仓库构建器处理的 MediaWiki 残留语法。
-
